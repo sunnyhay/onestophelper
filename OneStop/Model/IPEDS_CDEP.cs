@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System.Collections.Generic;
 
-namespace OneStop.Model
+namespace OneStopHelper.Model
 {
     public class IPEDS_CDEP
     {

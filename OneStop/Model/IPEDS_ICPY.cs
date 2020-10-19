@@ -1,9 +1,10 @@
 ﻿using Newtonsoft.Json;
 
-namespace OneStop.Model
+namespace OneStopHelper.Model
 {
     public class IPEDS_ICPY
     {
+        // not used
         [JsonProperty(PropertyName = "id")]
         public string Id { get; set; }
         public string UNITID { get; set; }

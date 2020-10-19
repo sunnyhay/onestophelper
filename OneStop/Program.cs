@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using System.IO;
 using ExcelDataReader;
-using OneStop.Model;
+using OneStopHelper.Model;
 using System.Collections.Generic;
 
 namespace OneStop
@@ -39,7 +39,8 @@ namespace OneStop
                 //p.Update();
                 //await p.UpdateFixedData();
                 //await p.QueryItemsAsync("100654");
-                //await p.AddIPEDSYearlyDataforADM("IPEDSADM");
+                await p.UpdateIPEDSYearlyData("IPEDSICAY");
+                //await p.AddIPEDSYearlyDataforADM("IPEDS");
                 //await p.AddIPEDSYearlyDataforAL("IPEDSAL");
                 //await p.AddIPEDSYearlyDataforCDEP("IPEDSCDEP");
                 //await p.AddIPEDSYearlyDataforDRVC("IPEDSDRVC");
@@ -48,7 +49,7 @@ namespace OneStop
                 //await p.AddIPEDSYearlyDataforDRVIC("IPEDSDRVIC");
                 //await p.AddIPEDSYearlyDataforIC("IPEDSIC");
                 //await p.AddIPEDSYearlyDataforICAY("IPEDSICAY");
-                await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
+                //await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
                 //await p.AddIPEDSCIPCODE("IPEDSCIPCODE2020");
             }
             catch (CosmosException de)
@@ -124,6 +125,303 @@ namespace OneStop
 
                 }
             } while (reader.NextResult());
+        }
+        
+        public async Task UpdateIPEDSYearlyData(string containerId)
+        {
+            var sqlQueryText = $"SELECT * FROM c";
+            QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
+            var destContainer = database.GetContainer(containerId);
+            var mainContainer = database.GetContainer("IPEDS");
+            var it = destContainer.GetItemQueryIterator<IPEDS>(queryDefinition);
+            int count = 0;
+            while (it.HasMoreResults)
+            {
+                var res = await it.ReadNextAsync();
+                Console.WriteLine($"This set contains {res.Count} records!");
+                count = count + res.Count;
+                foreach (var item in res)
+                {
+                    var unitid = item.UNITID;
+                    if (unitid.Equals("100654"))
+                    {
+                        //Console.WriteLine($"College {item.UNITID} exists with its LEBOOKS {item.LEBOOKS}!");
+                        var mainItem = await QueryTableAsync<IPEDS>("IPEDS", unitid);
+                        if (mainItem != default)
+                        {
+                            if (containerId.Equals("IPEDSAL"))
+                            {
+                                mainItem.LPBOOKS = item.LPBOOKS;
+                                mainItem.LEBOOKS = item.LEBOOKS;
+                                mainItem.LEDATAB = item.LEDATAB;
+                                mainItem.LPMEDIA = item.LPMEDIA;
+                                mainItem.LEMEDIA = item.LEMEDIA;
+                                mainItem.LPCLLCT = item.LPCLLCT;
+                                mainItem.LECLLCT = item.LECLLCT;
+                                mainItem.LTCLLCT = item.LTCLLCT;
+                                mainItem.LPCRCLT = item.LPCRCLT;
+                                mainItem.LECRCLT = item.LECRCLT;
+                                mainItem.LTCRCLT = item.LTCRCLT;
+                            }
+                            else if (containerId.Equals("IPEDSSSIS"))
+                            {
+                                mainItem.SISTOTL = item.SISTOTL;
+                                mainItem.SISPROF = item.SISPROF;
+                                mainItem.SISASCP = item.SISASCP;
+                                mainItem.SISASTP = item.SISASTP;
+                                mainItem.SISINST = item.SISINST;
+                                mainItem.SISLECT = item.SISLECT;
+                            }
+                            else if(containerId.Equals("IPEDSDRVC"))
+                            {
+                                mainItem.DOCDEGRS = item.DOCDEGRS;
+                                mainItem.DOCDEGPP = item.DOCDEGPP;
+                                mainItem.DOCDEGOT = item.DOCDEGOT;
+                                mainItem.MASDEG = item.MASDEG;
+                                mainItem.BASDEG = item.BASDEG;
+                                mainItem.ASCDEG = item.ASCDEG;
+                                mainItem.CERT4 = item.CERT4;
+                                mainItem.CERT2 = item.CERT2;
+                                mainItem.CERT1 = item.CERT1;
+                                mainItem.PBACERT = item.PBACERT;
+                                mainItem.PMACERT = item.PMACERT;
+                                mainItem.SDOCDEG = item.SDOCDEG;
+                                mainItem.SMASDEG = item.SMASDEG;
+                                mainItem.SBASDEG = item.SBASDEG;
+                                mainItem.SASCDEG = item.SASCDEG;
+                                mainItem.SBAMACRT = item.SBAMACRT;
+                                mainItem.SCERT24 = item.SCERT24;
+                                mainItem.SCERT1 = item.SCERT1;
+                            }
+                            else if (containerId.Equals("IPEDSDRVEF"))
+                            {
+                                mainItem.ENRTOT = item.ENRTOT;
+                                mainItem.ENRFT = item.ENRFT;
+                                mainItem.ENRPT = item.ENRPT;
+                                mainItem.PCTENRWH = item.PCTENRWH;
+                                mainItem.PCTENRBK = item.PCTENRBK;
+                                mainItem.PCTENRHS = item.PCTENRHS;
+                                mainItem.PCTENRAP = item.PCTENRAP;
+                                mainItem.PCTENRAS = item.PCTENRAS;
+                                mainItem.PCTENRAN = item.PCTENRAN;
+                                mainItem.PCTENRUN = item.PCTENRUN;
+                                mainItem.PCTENRNR = item.PCTENRNR;
+                                mainItem.PCTENRW = item.PCTENRW;
+                                mainItem.EFUGFT = item.EFUGFT;
+                                mainItem.PCUENRWH = item.PCUENRWH;
+                                mainItem.PCUENRBK = item.PCUENRBK;
+                                mainItem.PCUENRHS = item.PCUENRHS;
+                                mainItem.PCUENRAP = item.PCUENRAP;
+                                mainItem.PCUENRAS = item.PCUENRAS;
+                                mainItem.PCUENRAN = item.PCUENRAN;
+                                mainItem.PCUENR2M = item.PCUENR2M;
+                                mainItem.PCUENRUN = item.PCUENRUN;
+                                mainItem.PCUENRNR = item.PCUENRNR;
+                                mainItem.PCUENRW = item.PCUENRW;
+                                mainItem.EFGRAD = item.EFGRAD;
+                                mainItem.PCGENRWH = item.PCGENRWH;
+                                mainItem.PCGENRBK = item.PCGENRBK;
+                                mainItem.PCGENRHS = item.PCGENRHS;
+                                mainItem.PCGENRAP = item.PCGENRAP;
+                                mainItem.PCGENRAN = item.PCGENRAN;
+                                mainItem.PCGENR2M = item.PCGENR2M;
+                                mainItem.PCGENRUN = item.PCGENRUN;
+                                mainItem.PCGENRNR = item.PCGENRNR;
+                                mainItem.PCGENRW = item.PCGENRW;
+                            }
+                            else if (containerId.Equals("IPEDSDRVGR"))
+                            {
+                                mainItem.GRRTTOT = item.GRRTTOT;
+                                mainItem.GRRTM = item.GRRTM;
+                                mainItem.GRRTW = item.GRRTW;
+                                mainItem.GRRTAN = item.GRRTAN;
+                                mainItem.GRRTAP = item.GRRTAP;
+                                mainItem.GRRTAS = item.GRRTAS;
+                                mainItem.GRRTNH = item.GRRTNH;
+                                mainItem.GRRTBK = item.GRRTBK;
+                                mainItem.GRRTHS = item.GRRTHS;
+                                mainItem.GRRTWH = item.GRRTWH;
+                                mainItem.GRRT2M = item.GRRT2M;
+                                mainItem.GRRTUN = item.GRRTUN;
+                                mainItem.GRRTNR = item.GRRTNR;
+                                mainItem.TRRTTOT = item.TRRTTOT;
+                                mainItem.GBA4RTT = item.GBA4RTT;
+                                mainItem.GBA5RTT = item.GBA5RTT;
+                                mainItem.GBA6RTT = item.GBA6RTT;
+                                mainItem.GBA6RTM = item.GBA6RTM;
+                                mainItem.GBA6RTW = item.GBA6RTW;
+                                mainItem.GBA6RTAN = item.GBA6RTAN;
+                                mainItem.GBA6RTAP = item.GBA6RTAP;
+                                mainItem.GBA6RTAS = item.GBA6RTAS;
+                                mainItem.GBA6RTNH = item.GBA6RTNH;
+                                mainItem.GBA6RTBK = item.GBA6RTBK;
+                                mainItem.GBA6RTHS = item.GBA6RTHS;
+                                mainItem.GBA6RTWH = item.GBA6RTWH;
+                                mainItem.GBA6RT2M = item.GBA6RT2M;
+                                mainItem.GBA6RTUN = item.GBA6RTUN;
+                                mainItem.GBA6RTNR = item.GBA6RTNR;
+                                mainItem.GBATRRT = item.GBATRRT;
+                            }
+                            else if (containerId.Equals("IPEDSDRVIC"))
+                            {
+                                mainItem.CINDON = item.CINDON;
+                                mainItem.CINSON = item.CINSON;
+                                mainItem.COTSON = item.COTSON;
+                                mainItem.CINDOFF = item.CINDOFF;
+                                mainItem.CINSOFF = item.CINSOFF;
+                                mainItem.COTSOFF = item.COTSOFF;
+                                mainItem.CINDFAM = item.CINDFAM;
+                                mainItem.CINSFAM = item.CINSFAM;
+                                mainItem.COTSFAM = item.COTSFAM;
+                            }
+                            else if (containerId.Equals("IPEDSIC"))
+                            {
+                                mainItem.FT_UG = item.FT_UG;
+                                mainItem.FT_FTUG = item.FT_FTUG;
+                                mainItem.PT_UG = item.PT_UG;
+                                mainItem.PT_FTUG = item.PT_FTUG;
+                                mainItem.ROOM = item.ROOM;
+                                mainItem.ROOMCAP = item.ROOMCAP;
+                                mainItem.BOARD = item.BOARD;
+                                mainItem.ROOMAMT = item.ROOMAMT;
+                                mainItem.BOARDAMT = item.BOARDAMT;
+                                mainItem.RMBRDAMT = item.RMBRDAMT;
+                                mainItem.APPLFEEU = item.APPLFEEU;
+                                mainItem.APPLFEEG = item.APPLFEEG;
+                            }
+                            else if (containerId.Equals("IPEDSICAY"))
+                            {
+                                mainItem.TUITION1 = item.TUITION1;
+                                mainItem.FEE1 = item.FEE1;
+                                mainItem.HRCHG1 = item.HRCHG1;
+                                mainItem.TUITION2 = item.TUITION2;
+                                mainItem.FEE2 = item.FEE2;
+                                mainItem.HRCHG2 = item.HRCHG2;
+                                mainItem.TUITION3 = item.TUITION3;
+                                mainItem.FEE3 = item.FEE3;
+                                mainItem.HRCHG3 = item.HRCHG3;
+                                mainItem.TUITION5 = item.TUITION5;
+                                mainItem.FEE5 = item.FEE5;
+                                mainItem.HRCHG5 = item.HRCHG5;
+                                mainItem.TUITION6 = item.TUITION6;
+                                mainItem.FEE6 = item.FEE6;
+                                mainItem.HRCHG6 = item.HRCHG6;
+                                mainItem.TUITION7 = item.TUITION7;
+                                mainItem.FEE7 = item.FEE7;
+                                mainItem.HRCHG7 = item.HRCHG7;
+                                mainItem.ISPROF1 = item.ISPROF1;
+                                mainItem.ISPFEE1 = item.ISPFEE1;
+                                mainItem.OSPROF1 = item.OSPROF1;
+                                mainItem.OSPFEE1 = item.OSPFEE1;
+                                mainItem.ISPROF2 = item.ISPROF2;
+                                mainItem.ISPFEE2 = item.ISPFEE2;
+                                mainItem.OSPROF2 = item.OSPROF2;
+                                mainItem.OSPFEE2 = item.OSPFEE2;
+                                mainItem.ISPROF3 = item.ISPROF3;
+                                mainItem.ISPFEE3 = item.ISPFEE3;
+                                mainItem.OSPROF3 = item.OSPROF3;
+                                mainItem.OSPFEE3 = item.OSPFEE3;
+                                mainItem.ISPROF4 = item.ISPROF4;
+                                mainItem.ISPFEE4 = item.ISPFEE4;
+                                mainItem.OSPROF4 = item.OSPROF4;
+                                mainItem.OSPFEE4 = item.OSPFEE4;
+                                mainItem.ISPROF5 = item.ISPROF5;
+                                mainItem.ISPFEE5 = item.ISPFEE5;
+                                mainItem.OSPROF5 = item.OSPROF5;
+                                mainItem.OSPFEE5 = item.OSPFEE5;
+                                mainItem.ISPROF6 = item.ISPROF6;
+                                mainItem.ISPFEE6 = item.ISPFEE6;
+                                mainItem.OSPROF6 = item.OSPROF6;
+                                mainItem.OSPFEE6 = item.OSPFEE6;
+                                mainItem.ISPROF7 = item.ISPROF7;
+                                mainItem.ISPFEE7 = item.ISPFEE7;
+                                mainItem.OSPROF7 = item.OSPROF7;
+                                mainItem.OSPFEE7 = item.OSPFEE7;
+                                mainItem.ISPROF8 = item.ISPROF8;
+                                mainItem.ISPFEE8 = item.ISPFEE8;
+                                mainItem.OSPROF8 = item.OSPROF8;
+                                mainItem.OSPFEE8 = item.OSPFEE8;
+                                mainItem.ISPROF9 = item.ISPROF9;
+                                mainItem.ISPFEE9 = item.ISPFEE9;
+                                mainItem.OSPROF9 = item.OSPROF9;
+                                mainItem.OSPFEE9 = item.OSPFEE9;
+                                mainItem.CHG1AT0 = item.CHG1AT0;
+                                mainItem.CHG1AF0 = item.CHG1AF0;
+                                mainItem.CHG1AY0 = item.CHG1AY0;
+                                mainItem.CHG1AT1 = item.CHG1AT1;
+                                mainItem.CHG1AF1 = item.CHG1AF1;
+                                mainItem.CHG1AY1 = item.CHG1AY1;
+                                mainItem.CHG1AT2 = item.CHG1AT2;
+                                mainItem.CHG1AF2 = item.CHG1AF2;
+                                mainItem.CHG1AY2 = item.CHG1AY2;
+                                mainItem.CHG1AT3 = item.CHG1AT3;
+                                mainItem.CHG1AF3 = item.CHG1AF3;
+                                mainItem.CHG1AY3 = item.CHG1AY3;
+                                mainItem.CHG1TGTD = item.CHG1TGTD;
+                                mainItem.CHG1FGTD = item.CHG1FGTD;
+                                mainItem.CHG2AT0 = item.CHG2AT0;
+                                mainItem.CHG2AF0 = item.CHG2AF0;
+                                mainItem.CHG2AY0 = item.CHG2AY0;
+                                mainItem.CHG2AT1 = item.CHG2AT1;
+                                mainItem.CHG2AF1 = item.CHG2AF1;
+                                mainItem.CHG2AY1 = item.CHG2AY1;
+                                mainItem.CHG2AT2 = item.CHG2AT2;
+                                mainItem.CHG2AF2 = item.CHG2AF2;
+                                mainItem.CHG2AY2 = item.CHG2AY2;
+                                mainItem.CHG2AT3 = item.CHG2AT3;
+                                mainItem.CHG2AF3 = item.CHG2AF3;
+                                mainItem.CHG2AY3 = item.CHG2AY3;
+                                mainItem.CHG2TGTD = item.CHG2TGTD;
+                                mainItem.CHG2FGTD = item.CHG2FGTD;
+                                mainItem.CHG3AT0 = item.CHG3AT0;
+                                mainItem.CHG3AF0 = item.CHG3AF0;
+                                mainItem.CHG3AY0 = item.CHG3AY0;
+                                mainItem.CHG3AT1 = item.CHG3AT1;
+                                mainItem.CHG3AF1 = item.CHG3AF1;
+                                mainItem.CHG3AY1 = item.CHG3AY1;
+                                mainItem.CHG3AT2 = item.CHG3AT2;
+                                mainItem.CHG3AF2 = item.CHG3AF2;
+                                mainItem.CHG3AY2 = item.CHG3AY2;
+                                mainItem.CHG3AT3 = item.CHG3AT3;
+                                mainItem.CHG3AF3 = item.CHG3AF3;
+                                mainItem.CHG3AY3 = item.CHG3AY3;
+                                mainItem.CHG3TGTD = item.CHG3TGTD;
+                                mainItem.CHG3FGTD = item.CHG3FGTD;
+                                mainItem.CHG4AY0 = item.CHG4AY0;
+                                mainItem.CHG4AY1 = item.CHG4AY1;
+                                mainItem.CHG4AY2 = item.CHG4AY2;
+                                mainItem.CHG4AY3 = item.CHG4AY3;
+                                mainItem.CHG5AY0 = item.CHG5AY0;
+                                mainItem.CHG5AY1 = item.CHG5AY1;
+                                mainItem.CHG5AY2 = item.CHG5AY2;
+                                mainItem.CHG5AY3 = item.CHG5AY3;
+                                mainItem.CHG6AY0 = item.CHG6AY0;
+                                mainItem.CHG6AY1 = item.CHG6AY1;
+                                mainItem.CHG6AY2 = item.CHG6AY2;
+                                mainItem.CHG6AY3 = item.CHG6AY3;
+                                mainItem.CHG7AY0 = item.CHG7AY0;
+                                mainItem.CHG7AY1 = item.CHG7AY1;
+                                mainItem.CHG7AY2 = item.CHG7AY2;
+                                mainItem.CHG7AY3 = item.CHG7AY3;
+                                mainItem.CHG8AY0 = item.CHG8AY0;
+                                mainItem.CHG8AY1 = item.CHG8AY1;
+                                mainItem.CHG8AY2 = item.CHG8AY2;
+                                mainItem.CHG8AY3 = item.CHG8AY3;
+                                mainItem.CHG9AY0 = item.CHG9AY0;
+                                mainItem.CHG9AY1 = item.CHG9AY1;
+                                mainItem.CHG9AY2 = item.CHG9AY2;
+                                mainItem.CHG9AY3 = item.CHG9AY3;
+                            }
+                            ItemResponse<IPEDS> result = await mainContainer.UpsertItemAsync(mainItem, new PartitionKey(unitid));
+                            Console.WriteLine("Updated item in database with id: {0} Operation consumed {1} RUs.\n", result.Resource.Id, result.RequestCharge);
+                        }
+                    }
+                        
+                    
+                }
+
+            }
+            
         }
 
         public async Task AddIPEDSYearlyDataforAL(string containerId)
