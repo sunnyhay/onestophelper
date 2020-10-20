@@ -6,7 +6,7 @@ using ExcelDataReader;
 using OneStopHelper.Model;
 using System.Collections.Generic;
 
-namespace OneStop
+namespace OneStopHelper
 {
     public class Program
     {
@@ -35,11 +35,12 @@ namespace OneStop
                 Console.WriteLine("Beginning operations...\n");
                 Program p = new Program();
                 await p.StartOperationAsync();
+                await p.AddScorecardYearlyData();
                 // await p.ReadCSV();
                 //p.Update();
                 //await p.UpdateFixedData();
                 //await p.QueryItemsAsync("100654");
-                await p.UpdateIPEDSYearlyData("IPEDSICAY");
+                //await p.UpdateIPEDSYearlyData("IPEDSICAY");
                 //await p.AddIPEDSYearlyDataforADM("IPEDS");
                 //await p.AddIPEDSYearlyDataforAL("IPEDSAL");
                 //await p.AddIPEDSYearlyDataforCDEP("IPEDSCDEP");
@@ -1648,6 +1649,221 @@ namespace OneStop
                     break;
             }
             return degree;
+        }
+
+        private async Task AddScorecardYearlyData()
+        {
+            using StreamReader sr = new StreamReader("c:/Users/Administrator/Downloads/Most-Recent-Cohorts-All-Data-Elements.csv");
+            var num = 0;
+            var localContainer = database.GetContainer("YearlyCollegeData");
+            string currentLine;
+            // currentLine will be null when the StreamReader reaches the end of file
+            while ((currentLine = sr.ReadLine()) != null)
+            {
+                num++;
+                if (num == 1)
+                    continue;
+                //Console.WriteLine("Working on line number: " + (num - 1));
+                var vals = currentLine.Split(',');
+                var UNITID = vals[0];
+                var ADM_RATE = vals[36];
+                var ADM_RATE_ALL = vals[37];
+                var SATVR25 = vals[38];
+                var SATVR75 = vals[39];
+                var SATMT25 = vals[40];
+                var SATMT75 = vals[41];
+                var SATWR25 = vals[42];
+                var SATWR75 = vals[43];
+                var SATVRMID = vals[44];
+                var SATMTMID = vals[45];
+                var SATWRMID = vals[46];
+                var ACTCM25 = vals[47];
+                var ACTCM75 = vals[48];
+                var ACTEN25 = vals[49];
+                var ACTEN75 = vals[50];
+                var ACTMT25 = vals[51];
+                var ACTMT75 = vals[52];
+                var ACTWR25 = vals[53];
+                var ACTWR75 = vals[54];
+                var ACTCMMID = vals[55];
+                var ACTENMID = vals[56];
+                var ACTMTMID = vals[57];
+                var ACTWRMID = vals[58];
+                var SAT_AVG = vals[59];
+                var UGDS = vals[290];
+                var UGDS_WHITE = vals[292];
+                var UGDS_BLACK = vals[293];
+                var UGDS_HISP = vals[294];
+                var UGDS_ASIAN = vals[295];
+                var UGDS_AIAN = vals[296];
+                var UGDS_NHPI = vals[297];
+                var UGDS_2MOR = vals[298];
+                var UGDS_NRA = vals[299];
+                var UGDS_UNKN = vals[300];
+                var UGDS_WHITENH = vals[301];
+                var UGDS_BLACKNH = vals[302];
+                var UGDS_API = vals[303];
+                var NPT4_PUB = vals[316];
+                var NPT4_PRIV = vals[317];
+                var NPT41_PUB = vals[320];
+                var NPT42_PUB = vals[321];
+                var NPT43_PUB = vals[322];
+                var NPT44_PUB = vals[323];
+                var NPT45_PUB = vals[324];
+                var NPT41_PRIV = vals[325];
+                var NPT42_PRIV = vals[326];
+                var NPT43_PRIV = vals[327];
+                var NPT44_PRIV = vals[328];
+                var NPT45_PRIV = vals[329];
+                var NUM4_PUB = vals[352];
+                var NUM4_PRIV = vals[353];
+                var NUM41_PUB = vals[356];
+                var NUM42_PUB = vals[357];
+                var NUM43_PUB = vals[358];
+                var NUM44_PUB = vals[359];
+                var NUM45_PUB = vals[360];
+                var NUM41_PRIV = vals[361];
+                var NUM42_PRIV = vals[362];
+                var NUM43_PRIV = vals[363];
+                var NUM44_PRIV = vals[364];
+                var NUM45_PRIV = vals[365];
+                var COSTT4_A = vals[376];
+                var COSTT4_P = vals[377];
+                var TUITIONFEE_IN = vals[378];
+                var TUITIONFEE_OUT = vals[379];
+                var FEMALE = vals[1609];
+                var MARRIED = vals[1610];
+                var DEPENDENT = vals[1611];
+                var VETERAN = vals[1612];
+                var FIRST_GEN = vals[1613];
+                var FAMINC = vals[1614];
+                var MD_FAMINC = vals[1615];
+                var MEDIAN_HH_INC = vals[1626];
+                var POVERTY_RATE = vals[1627];
+                var UNEMP_RATE = vals[1628];
+                var GRAD_DEBT_MDN_SUPP = vals[1709];
+                var UGDS_MEN = vals[1739];
+                var UGDS_WOMEN = vals[1740];
+                var GRADS = vals[1775];
+                var COUNT_NWNE_P10 = vals[1636];
+                var COUNT_WNE_P10 = vals[1637];
+                var MN_EARN_WNE_P10 = vals[1638];
+                var MD_EARN_WNE_P10 = vals[1639];
+                var COUNT_NWNE_P6 = vals[1662];
+                var COUNT_WNE_P6 = vals[1663];
+                var MN_EARN_WNE_P6 = vals[1664];
+                var MD_EARN_WNE_P6 = vals[1665];
+                var COUNT_NWNE_P8 = vals[1693];
+                var COUNT_WNE_P8 = vals[1694];
+                var MN_EARN_WNE_P8 = vals[1695];
+                var MD_EARN_WNE_P8 = vals[1696];
+
+                CollegeUSYearly item = new CollegeUSYearly
+                {
+
+                    UNITID = UNITID,
+                    Id = (num - 1).ToString(),
+                    year = "2019",
+                    ADM_RATE = ADM_RATE,
+                    ADM_RATE_ALL = ADM_RATE_ALL,
+                    SATVR25 = SATVR25,
+                    SATVR75 = SATVR75,
+                    SATMT25 = SATMT25,
+                    SATMT75 = SATMT75,
+                    SATWR25 = SATWR25,
+                    SATWR75 = SATWR75,
+                    SATVRMID = SATVRMID,
+                    SATMTMID = SATMTMID,
+                    SATWRMID = SATWRMID,
+                    ACTCM25 = ACTCM25,
+                    ACTCM75 = ACTCM75,
+                    ACTEN25 = ACTEN25,
+                    ACTEN75 = ACTEN75,
+                    ACTMT25 = ACTMT25,
+                    ACTMT75 = ACTMT75,
+                    ACTWR25 = ACTWR25,
+                    ACTWR75 = ACTWR75,
+                    ACTCMMID = ACTCMMID,
+                    ACTENMID = ACTENMID,
+                    ACTMTMID = ACTMTMID,
+                    ACTWRMID = ACTWRMID,
+                    SAT_AVG = SAT_AVG,
+                    UGDS = UGDS,
+                    UGDS_WHITE = UGDS_WHITE,
+                    UGDS_BLACK = UGDS_BLACK,
+                    UGDS_HISP = UGDS_HISP,
+                    UGDS_ASIAN = UGDS_ASIAN,
+                    UGDS_AIAN = UGDS_AIAN,
+                    UGDS_NHPI = UGDS_NHPI,
+                    UGDS_2MOR = UGDS_2MOR,
+                    UGDS_NRA = UGDS_NRA,
+                    UGDS_UNKN = UGDS_UNKN,
+                    UGDS_WHITENH = UGDS_WHITENH,
+                    UGDS_BLACKNH = UGDS_BLACKNH,
+                    UGDS_API = UGDS_API,
+                    NPT4_PUB = NPT4_PUB,
+                    NPT4_PRIV = NPT4_PRIV,
+                    NPT41_PUB = NPT41_PUB,
+                    NPT42_PUB = NPT42_PUB,
+                    NPT43_PUB = NPT43_PUB,
+                    NPT44_PUB = NPT44_PUB,
+                    NPT45_PUB = NPT45_PUB,
+                    NPT41_PRIV = NPT41_PRIV,
+                    NPT42_PRIV = NPT42_PRIV,
+                    NPT43_PRIV = NPT43_PRIV,
+                    NPT44_PRIV = NPT44_PRIV,
+                    NPT45_PRIV = NPT45_PRIV,
+                    NUM4_PUB = NUM4_PUB,
+                    NUM41_PUB = NUM41_PUB,
+                    NUM42_PUB = NUM42_PUB,
+                    NUM43_PUB = NUM43_PUB,
+                    NUM44_PUB = NUM44_PUB,
+                    NUM45_PUB = NUM45_PUB,
+                    NUM41_PRIV = NUM41_PRIV,
+                    NUM42_PRIV = NUM42_PRIV,
+                    NUM43_PRIV = NUM43_PRIV,
+                    NUM44_PRIV = NUM44_PRIV,
+                    NUM45_PRIV = NUM45_PRIV,
+                    NUM4_PRIV = NUM4_PRIV,
+                    COSTT4_A = COSTT4_A,
+                    COSTT4_P = COSTT4_P,
+                    TUITIONFEE_IN = TUITIONFEE_IN,
+                    TUITIONFEE_OUT = TUITIONFEE_OUT,
+                    FEMALE = FEMALE,
+                    MARRIED = MARRIED,
+                    DEPENDENT = DEPENDENT,
+                    VETERAN = VETERAN,
+                    FIRST_GEN = FIRST_GEN,
+                    FAMINC = FAMINC,
+                    MD_FAMINC = MD_FAMINC,
+                    MEDIAN_HH_INC = MEDIAN_HH_INC,
+                    POVERTY_RATE = POVERTY_RATE,
+                    UNEMP_RATE = UNEMP_RATE,
+                    GRAD_DEBT_MDN_SUPP = GRAD_DEBT_MDN_SUPP,
+                    UGDS_MEN = UGDS_MEN,
+                    UGDS_WOMEN = UGDS_WOMEN,
+                    GRADS = GRADS,
+                    COUNT_NWNE_P10 = COUNT_NWNE_P10,
+                    COUNT_WNE_P10 = COUNT_WNE_P10,
+                    MN_EARN_WNE_P10 = MN_EARN_WNE_P10,
+                    MD_EARN_WNE_P10 = MD_EARN_WNE_P10,
+                    COUNT_NWNE_P6 = COUNT_NWNE_P6,
+                    COUNT_WNE_P6 = COUNT_WNE_P6,
+                    MN_EARN_WNE_P6 = MN_EARN_WNE_P6,
+                    MD_EARN_WNE_P6 = MD_EARN_WNE_P6,
+                    COUNT_NWNE_P8 = COUNT_NWNE_P8,
+                    COUNT_WNE_P8 = COUNT_WNE_P8,
+                    MN_EARN_WNE_P8 = MN_EARN_WNE_P8,
+                    MD_EARN_WNE_P8 = MD_EARN_WNE_P8
+                };
+
+                if (num == 2)
+                {
+                    Console.WriteLine($"unitid: {UNITID}");
+                    ItemResponse<CollegeUSYearly> res = await localContainer.CreateItemAsync(item, new PartitionKey(item.UNITID));
+                    Console.WriteLine("Created item in database with id: {0} Operation consumed {1} RUs.\n", res.Resource.Id, res.RequestCharge);
+                }
+            }
         }
 
         private async Task ReadCSV()

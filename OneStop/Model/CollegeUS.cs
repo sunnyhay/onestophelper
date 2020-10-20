@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace OneStop
+namespace OneStopHelper.Model
 {
     public class CollegeUS
     {
