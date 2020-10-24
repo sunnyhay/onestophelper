@@ -2,13 +2,13 @@
 
 namespace OneStopHelper.Model
 {
-    public class CollegeUSYearly
+    public class CollegeDataUSYearly
     {
         // some value may be "PrivacySuppressed" and so use string as generic type for each field
         [JsonProperty(PropertyName = "id")]
         public string Id { get; set; }
         public string UNITID { get; set; }
-        public string year { get; set; }
+        public int year { get; set; }
         public string ADM_RATE { get; set; }
         public string ADM_RATE_ALL { get; set; }
         public string SATVR25 { get; set; }

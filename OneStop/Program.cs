@@ -11,7 +11,7 @@ namespace OneStopHelper
     public class Program
     {
         // The Azure Cosmos DB endpoint for running this sample.
-        private static readonly string EndpointUri = "https://onestoptest.documents.azure.com:443/";
+        private static readonly string EndpointUri = "https://localhost:8081";
         // The primary key for the Azure Cosmos account.
         private static readonly string PrimaryKey = "";
 
@@ -26,7 +26,9 @@ namespace OneStopHelper
 
         // The name of the database and container we will create
         private readonly string databaseId = "OneStop";
-        private readonly string containerId = "CommonCollegeUS";
+        private readonly string containerId = "CollegeDataUS";
+        private readonly string rootPath = "c:/Users/Administrator/Documents/";
+        private readonly int CURRENTYEAR = 2019;
 
         public static async Task Main(string[] args)
         {
@@ -35,14 +37,14 @@ namespace OneStopHelper
                 Console.WriteLine("Beginning operations...\n");
                 Program p = new Program();
                 await p.StartOperationAsync();
-                await p.AddScorecardYearlyData();
-                // await p.ReadCSV();
-                //p.Update();
-                //await p.UpdateFixedData();
-                //await p.QueryItemsAsync("100654");
-                //await p.UpdateIPEDSYearlyData("IPEDSICAY");
-                //await p.AddIPEDSYearlyDataforADM("IPEDS");
+
+                //await p.AddBasicCollegeData();
+                //await p.UpdateCollegeDataWithIPEDSHD();
+                //await p.AddScorecardYearlyData();
+
+                //await p.AddIPEDSYearlyDataforADM("IPEDSADM");
                 //await p.AddIPEDSYearlyDataforAL("IPEDSAL");
+                //await p.AddIPEDSCIPCODE("IPEDSCIPCODE2020");
                 //await p.AddIPEDSYearlyDataforCDEP("IPEDSCDEP");
                 //await p.AddIPEDSYearlyDataforDRVC("IPEDSDRVC");
                 //await p.AddIPEDSYearlyDataforDRVEF("IPEDSDRVEF");
@@ -51,7 +53,8 @@ namespace OneStopHelper
                 //await p.AddIPEDSYearlyDataforIC("IPEDSIC");
                 //await p.AddIPEDSYearlyDataforICAY("IPEDSICAY");
                 //await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
-                //await p.AddIPEDSCIPCODE("IPEDSCIPCODE2020");
+                //await p.UpdateIPEDSYearlyData("IPEDSICAY");
+
             }
             catch (CosmosException de)
             {
@@ -79,9 +82,114 @@ namespace OneStopHelper
             return result;
         }
 
+        /// <summary>
+        /// Add the basic college data without yearly info from College ScoreCard dataset
+        /// </summary>
+        /// <returns></returns>
+        public async Task AddBasicCollegeData()
+        {
+            using StreamReader sr = new StreamReader($"{rootPath}Most-Recent-Cohorts-All-Data-Elements.csv");
+            var num = 0;
+            string currentLine;
+            // currentLine will be null when the StreamReader reaches the end of file
+            while ((currentLine = sr.ReadLine()) != null)
+            {
+                num++;
+                if (num == 1)
+                    continue;
+                var vals = currentLine.Split(',');
+                var unitid = vals[0];
+                var instnm = vals[3];
+                var city = vals[4];
+                var stabbr = vals[5];
+                var zip = vals[6];
+                var insturl = vals[8];
+                var npcurl = vals[9];
+                var control = vals[16];
+                var st_fips = vals[17];
+                var region = vals[18];
+                var locale = vals[19];
+                var latitude = vals[21];
+                var longitude = vals[22];
+                CollegeDataUS college = new CollegeDataUS
+                {
+                    Id = (num - 1).ToString(),
+                    UNITID = unitid,
+                    INSTNM = instnm,
+                    CITY = city,
+                    STABBR = stabbr,
+                    ZIP = zip,
+                    INSTURL = insturl,
+                    NPCURL = npcurl,
+                    CONTROL = control,
+                    ST_FIPS = st_fips,
+                    REGION = region,
+                    LOCALE = locale,
+                    LATITUDE = latitude,
+                    LONGITUDE = longitude
+                };
+                if (num % 100 == 0)
+                    Console.WriteLine("Working on line number: " + (num - 1));
+                //Console.WriteLine("unitid: " + unitid + " for num: " + num);
+                await AddItemsToContainerAsync(college);
+            }
+        }
+
+        // update the basic college data with IPEDS HD table content
+        public async Task UpdateCollegeDataWithIPEDSHD()
+        {
+            var filePath = $"{rootPath}HD2018.xlsx";
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
+            using var reader = ExcelReaderFactory.CreateReader(stream);
+            int count = 0;
+            do
+            {
+                while (reader.Read())
+                {
+                    count++;
+                    if (count == 1)
+                        continue;
+                    var unitid = reader.GetDouble(0).ToString();
+                    var adminurl = reader.GetString(17);
+                    var faidurl = reader.GetString(18);
+                    var applurl = reader.GetString(19);
+                    var hdegofr1 = reader.GetDouble(30);
+                    var degree = GetDegree(hdegofr1 + "");
+                    var countynm = reader.GetString(67);
+                    var id = (count - 1).ToString();
+                    var idNum = count - 1;
+                    if (idNum % 100 == 0)
+                        Console.WriteLine("Working on line num: " + idNum);
+
+                    if (idNum < 30000)
+                    {
+                        //Console.WriteLine($"unitid: {unitid} with adminurl {adminurl}");
+                        var partitionKey = new PartitionKey(unitid);
+                        //ItemResponse<CollegeUS> res = await container.ReadItemAsync<CollegeUS>(id, partitionKey);
+                        CollegeDataUS college = await QueryItemsAsync(unitid);
+                        if (college == null)
+                        {
+                            continue;
+                        }
+                        //Console.WriteLine("Working on college: " + college.INSTNM);
+                        college.ADMINURL = adminurl;
+                        college.FAIDURL = faidurl;
+                        college.APPLURL = applurl;
+                        college.COUNTYNM = countynm;
+                        college.HIGHEST_DEGREE = degree;
+                        var res = await container.ReplaceItemAsync(college, college.Id, partitionKey);
+                        //Console.WriteLine("Updated college: " + college.INSTNM);
+                        //Console.WriteLine();
+                    }
+
+                }
+            } while (reader.NextResult());
+        }
+
         public async Task AddIPEDSCIPCODE(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/CIPCode2020.xlsx";
+            var filePath = $"{rootPath}CIPCode2020.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -425,77 +533,9 @@ namespace OneStopHelper
             
         }
 
-        public async Task AddIPEDSYearlyDataforAL(string containerId)
-        {
-            var filePath = "c:/Users/Administrator/Documents/AL2018.xlsx";
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-            using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
-            using var reader = ExcelReaderFactory.CreateReader(stream);
-            int count = 0;
-            do
-            {
-                while (reader.Read())
-                {
-                    count++;
-                    //Console.WriteLine("current line: " + count);
-                    if (count == 1)
-                        continue;
-                    var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
-                    double? lpbooks = RetrieveVal(reader.GetValue(2));
-                    double? lebooks = RetrieveVal(reader.GetValue(3));
-                    double? ledatab = RetrieveVal(reader.GetValue(4));
-                    double? lpmedia = RetrieveVal(reader.GetValue(5));
-                    double? lemedia = RetrieveVal(reader.GetValue(6));
-                    double? lpcllct = RetrieveVal(reader.GetValue(9));
-                    double? lecllct = RetrieveVal(reader.GetValue(10));
-                    double? ltcllct = RetrieveVal(reader.GetValue(11));
-                    double? lpcrclt = RetrieveVal(reader.GetValue(12));
-                    double? lecrclt = RetrieveVal(reader.GetValue(13));
-                    double? ltcrclt = RetrieveVal(reader.GetValue(14));
-                    
-                    var id = (count - 1).ToString();
-                    var idNum = count - 1;
-                    var localContainer = GetContainer(containerId);
-                    if (idNum < 30000)
-                    {
-                        var partitionKey = new PartitionKey(unitid);
-                        IPEDS_AL item = new IPEDS_AL
-                        {
-                            Id = id,
-                            UNITID = unitid,
-                            year = year,
-                            LPBOOKS = lpbooks,
-                            LEBOOKS = lebooks,
-                            LEDATAB = ledatab,
-                            LPMEDIA = lpmedia,
-                            LEMEDIA = lemedia,
-                            LPCLLCT = lpcllct,
-                            LECLLCT = lecllct,
-                            LTCLLCT = ltcllct,
-                            LPCRCLT = lpcrclt,
-                            LECRCLT = lecrclt,
-                            LTCRCLT = ltcrclt
-                        };
-                        try
-                        {
-                            //Console.WriteLine("current item: " + item.UNITID + " with ltcrclt: " + item.LTCRCLT);
-                            ItemResponse<IPEDS_AL> res = await localContainer.CreateItemAsync(item, new PartitionKey(item.UNITID));
-                            Console.WriteLine("Created item in database with id: {0} Operation consumed {1} RUs.\n", res.Resource.Id, res.RequestCharge);
-                        }
-                        catch (CosmosException ex)
-                        {
-                            Console.WriteLine(ex.Message);
-                        }
-                        Console.WriteLine();
-                    }
-
-                }
-            } while (reader.NextResult());
-        }
         public async Task AddIPEDSYearlyDataforADM(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/ADM2018.xlsx";
+            var filePath = $"{rootPath}ADM2018.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -509,7 +549,6 @@ namespace OneStopHelper
                     if (count == 1)
                         continue;
                     var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
                     double? applcn = RetrieveVal(reader.GetValue(10));
                     double? applcnm = RetrieveVal(reader.GetValue(11));
                     double? applcnw = RetrieveVal(reader.GetValue(12));
@@ -540,7 +579,7 @@ namespace OneStopHelper
                         {
                             Id = id,
                             UNITID = unitid,
-                            year = year,
+                            year = CURRENTYEAR,
                             APPLCN = applcn,
                             APPLCNM = applcnm,
                             APPLCNW = applcnw,
@@ -577,9 +616,10 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
-        public async Task AddIPEDSYearlyDataforCDEP(string containerId)
+
+        public async Task AddIPEDSYearlyDataforAL(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/C2018DEP.xlsx";
+            var filePath = $"{rootPath}AL2018.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -593,7 +633,74 @@ namespace OneStopHelper
                     if (count == 1)
                         continue;
                     var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
+                    double? lpbooks = RetrieveVal(reader.GetValue(2));
+                    double? lebooks = RetrieveVal(reader.GetValue(3));
+                    double? ledatab = RetrieveVal(reader.GetValue(4));
+                    double? lpmedia = RetrieveVal(reader.GetValue(5));
+                    double? lemedia = RetrieveVal(reader.GetValue(6));
+                    double? lpcllct = RetrieveVal(reader.GetValue(9));
+                    double? lecllct = RetrieveVal(reader.GetValue(10));
+                    double? ltcllct = RetrieveVal(reader.GetValue(11));
+                    double? lpcrclt = RetrieveVal(reader.GetValue(12));
+                    double? lecrclt = RetrieveVal(reader.GetValue(13));
+                    double? ltcrclt = RetrieveVal(reader.GetValue(14));
+                    
+                    var id = (count - 1).ToString();
+                    var idNum = count - 1;
+                    var localContainer = GetContainer(containerId);
+                    if (idNum < 30000)
+                    {
+                        var partitionKey = new PartitionKey(unitid);
+                        IPEDS_AL item = new IPEDS_AL
+                        {
+                            Id = id,
+                            UNITID = unitid,
+                            year = CURRENTYEAR,
+                            LPBOOKS = lpbooks,
+                            LEBOOKS = lebooks,
+                            LEDATAB = ledatab,
+                            LPMEDIA = lpmedia,
+                            LEMEDIA = lemedia,
+                            LPCLLCT = lpcllct,
+                            LECLLCT = lecllct,
+                            LTCLLCT = ltcllct,
+                            LPCRCLT = lpcrclt,
+                            LECRCLT = lecrclt,
+                            LTCRCLT = ltcrclt
+                        };
+                        try
+                        {
+                            //Console.WriteLine("current item: " + item.UNITID + " with ltcrclt: " + item.LTCRCLT);
+                            ItemResponse<IPEDS_AL> res = await localContainer.CreateItemAsync(item, new PartitionKey(item.UNITID));
+                            Console.WriteLine("Created item in database with id: {0} Operation consumed {1} RUs.\n", res.Resource.Id, res.RequestCharge);
+                        }
+                        catch (CosmosException ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                        }
+                        Console.WriteLine();
+                    }
+
+                }
+            } while (reader.NextResult());
+        }
+        
+        public async Task AddIPEDSYearlyDataforCDEP(string containerId)
+        {
+            var filePath = $"{rootPath}C2018DEP.xlsx";
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
+            using var reader = ExcelReaderFactory.CreateReader(stream);
+            int count = 0;
+            do
+            {
+                while (reader.Read())
+                {
+                    count++;
+                    //Console.WriteLine("current line: " + count);
+                    if (count == 1)
+                        continue;
+                    var unitid = reader.GetDouble(0).ToString();
                     var CIPCODE = reader.GetString(1);
                     double? PTOTAL = RetrieveVal(reader.GetValue(2));
                     double? PTOTALDE = RetrieveVal(reader.GetValue(3));
@@ -630,7 +737,7 @@ namespace OneStopHelper
                         {
                             Id = id,
                             UNITID = unitid,
-                            year = year
+                            year = CURRENTYEAR
                         };
                         IPEDS_CDEP_ITEM entry = new IPEDS_CDEP_ITEM
                         {
@@ -690,9 +797,10 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
+
         public async Task AddIPEDSYearlyDataforDRVC(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/DRVC2018.xlsx";
+            var filePath = $"{rootPath}DRVC2018.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -706,7 +814,6 @@ namespace OneStopHelper
                     if (count == 1)
                         continue;
                     var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
                     double? ASCDEG = RetrieveVal(reader.GetValue(1));
                     double? BASDEG = RetrieveVal(reader.GetValue(2));
                     double? MASDEG = RetrieveVal(reader.GetValue(3));
@@ -736,7 +843,7 @@ namespace OneStopHelper
                         {
                             Id = id,
                             UNITID = unitid,
-                            year = year,
+                            year = CURRENTYEAR,
                             ASCDEG = ASCDEG,
                             BASDEG = BASDEG,
                             MASDEG = MASDEG,
@@ -772,9 +879,10 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
+
         public async Task AddIPEDSYearlyDataforDRVEF(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/DRVEF2018.xlsx";
+            var filePath = $"{rootPath}DRVEF2018.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -788,7 +896,6 @@ namespace OneStopHelper
                     if (count == 1)
                         continue;
                     var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
                     double? ENRTOT = RetrieveVal(reader.GetValue(1));
                     double? ENRFT = RetrieveVal(reader.GetValue(3));
                     double? ENRPT = RetrieveVal(reader.GetValue(4));
@@ -833,7 +940,7 @@ namespace OneStopHelper
                         {
                             Id = id,
                             UNITID = unitid,
-                            year = year,
+                            year = CURRENTYEAR,
                             ENRTOT = ENRTOT,
                             ENRFT = ENRFT,
                             ENRPT = ENRPT,
@@ -884,9 +991,10 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
+
         public async Task AddIPEDSYearlyDataforDRVGR(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/DRVGR2018.xlsx";
+            var filePath = $"{rootPath}DRVGR2018.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -900,7 +1008,6 @@ namespace OneStopHelper
                     if (count == 1)
                         continue;
                     var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
                     double? GRRTTOT = RetrieveVal(reader.GetValue(1));
                     double? GRRTM = RetrieveVal(reader.GetValue(2));
                     double? GRRTW = RetrieveVal(reader.GetValue(3));
@@ -943,7 +1050,7 @@ namespace OneStopHelper
                         {
                             Id = id,
                             UNITID = unitid,
-                            year = year,
+                            year = CURRENTYEAR,
                             GRRTTOT = GRRTTOT,
                             GRRTM = GRRTM,
                             GRRTW = GRRTW,
@@ -991,9 +1098,10 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
+
         public async Task AddIPEDSYearlyDataforDRVIC(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/DRVIC2018.xlsx";
+            var filePath = $"{rootPath}DRVIC2018.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -1007,7 +1115,6 @@ namespace OneStopHelper
                     if (count == 1)
                         continue;
                     var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
                     double? CINDON = RetrieveVal(reader.GetValue(5));
                     double? CINSON = RetrieveVal(reader.GetValue(6));
                     double? COTSON = RetrieveVal(reader.GetValue(7));
@@ -1028,7 +1135,7 @@ namespace OneStopHelper
                         {
                             Id = id,
                             UNITID = unitid,
-                            year = year,
+                            year = CURRENTYEAR,
                             CINDON = CINDON,
                             CINSON = CINSON,
                             COTSON = COTSON,
@@ -1055,9 +1162,10 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
+
         public async Task AddIPEDSYearlyDataforIC(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/IC2018.xlsx";
+            var filePath = $"{rootPath}IC2018.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -1071,7 +1179,6 @@ namespace OneStopHelper
                     if (count == 1)
                         continue;
                     var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
                     double? FT_UG = RetrieveVal(reader.GetValue(24));
                     double? FT_FTUG = RetrieveVal(reader.GetValue(25));
                     double? PT_UG = RetrieveVal(reader.GetValue(27));
@@ -1095,7 +1202,7 @@ namespace OneStopHelper
                         {
                             Id = id,
                             UNITID = unitid,
-                            year = year,
+                            year = CURRENTYEAR,
                             FT_UG = FT_UG,
                             FT_FTUG = FT_FTUG,
                             PT_UG = PT_UG,
@@ -1125,9 +1232,10 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
+
         public async Task AddIPEDSYearlyDataforICAY(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/IC2018_AY.xlsx";
+            var filePath = $"{rootPath}IC2018_AY.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -1141,7 +1249,6 @@ namespace OneStopHelper
                     if (count == 1)
                         continue;
                     var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
                     double? TUITION1 = RetrieveVal(reader.GetValue(1));
                     double? FEE1 = RetrieveVal(reader.GetValue(2));
                     double? HRCHG1 = RetrieveVal(reader.GetValue(3));
@@ -1273,7 +1380,7 @@ namespace OneStopHelper
                         {
                             Id = id,
                             UNITID = unitid,
-                            year = year,
+                            year = CURRENTYEAR,
                             TUITION1 = TUITION1,
                             FEE1 = FEE1,
                             HRCHG1 = HRCHG1,
@@ -1411,9 +1518,10 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
+
         public async Task AddIPEDSYearlyDataforSSIS(string containerId)
         {
-            var filePath = "c:/Users/Administrator/Documents/S2018_SIS.xlsx";
+            var filePath = $"{rootPath}S2018_SIS.xlsx";
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
             using var reader = ExcelReaderFactory.CreateReader(stream);
@@ -1427,7 +1535,6 @@ namespace OneStopHelper
                     if (count == 1)
                         continue;
                     var unitid = reader.GetDouble(0).ToString();
-                    var year = 2018;
                     double? FACSTAT = RetrieveVal(reader.GetValue(1));
                     double? SISTOTL = RetrieveVal(reader.GetValue(2));
                     double? SISPROF = RetrieveVal(reader.GetValue(3));
@@ -1448,7 +1555,7 @@ namespace OneStopHelper
                             {
                                 Id = id,
                                 UNITID = unitid,
-                                year = year,
+                                year = CURRENTYEAR,
                                 SISTOTL = SISTOTL,
                                 SISPROF = SISPROF,
                                 SISASCP = SISASCP,
@@ -1474,188 +1581,16 @@ namespace OneStopHelper
             } while (reader.NextResult());
         }
 
-        public async Task UpdateFixedData()
-        {
-            var filePath = "c:/Users/Administrator/Documents/HD2018_copy.xlsx";
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-            using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
-            // Auto-detect format, supports:
-            //  - Binary Excel files (2.0-2003 format; *.xls)
-            //  - OpenXml Excel files (2007 format; *.xlsx, *.xlsb)
-            using var reader = ExcelReaderFactory.CreateReader(stream);
-            // Choose one of either 1 or 2:
-
-            // 1. Use the reader methods
-            int count = 0;
-            do
-            {
-                while (reader.Read())
-                {
-                    count++;
-                    if (count == 1)
-                        continue;
-                    var unitid = reader.GetDouble(0).ToString();
-                    var adminurl = reader.GetString(17);
-                    var faidurl = reader.GetString(18);
-                    var applurl = reader.GetString(19);
-                    var hdegofr1 = reader.GetDouble(30);
-                    var degree = GetDegree(hdegofr1 + "");
-                    var countynm = reader.GetString(67);  // something wrong in the delimitor, may use field 68 for this!
-                    var id = (count - 1).ToString();
-                    var idNum = count - 1;
-
-                    if (idNum < 30000)
-                    {
-                        Console.WriteLine($"unitid: {unitid} with adminurl {adminurl}");
-                        var partitionKey = new PartitionKey(unitid);
-                        //ItemResponse<CollegeUS> res = await container.ReadItemAsync<CollegeUS>(id, partitionKey);
-                        CollegeUS college = await QueryItemsAsync(unitid);
-                        if (college == null)
-                        {
-                            continue;
-                        }
-                        Console.WriteLine("Working on college: " + college.INSTNM);
-                        //Console.WriteLine($"unitid: {unitid} with adminurl {adminurl}");
-                        //Console.WriteLine($"faidurl: {faidurl} with applurl {applurl}");
-                        //Console.WriteLine($"countynm: {countynm} with highest degree {degree}");
-                        //Console.WriteLine();
-                        college.ADMINURL = adminurl;
-                        college.FAIDURL = faidurl;
-                        college.APPLURL = applurl;
-                        college.COUNTYNM = countynm;
-                        college.HIGHEST_DEGREE = degree;
-                        var res = await container.ReplaceItemAsync(college, college.Id, partitionKey);
-                        Console.WriteLine("Updated college: " + college.INSTNM);
-                        Console.WriteLine();
-                    }
-
-                }
-            } while (reader.NextResult());
-
-            // 2. Use the AsDataSet extension method
-            //var result = reader.AsDataSet();
-
-            // The result of each spreadsheet is in result.Tables
-        }
-
-        // ADD THIS PART TO YOUR CODE
-        /*
-            Entry point to call methods that operate on Azure Cosmos DB resources in this sample
-        */
-        public async Task StartOperationAsync()
-        {
-            // Create a new instance of the Cosmos Client
-            cosmosClient = new CosmosClient(EndpointUri, PrimaryKey);
-            GetDatabase();
-            //await CreateDatabaseAsync();
-            //await CreateContainerAsync();
-        }
-
-        private void GetDatabase()
-        {
-            database = cosmosClient.GetDatabase(databaseId);
-        }
 
         /// <summary>
-        /// Create the database if it does not exist
-        /// </summary>
-        private async Task CreateDatabaseAsync()
-        {
-            // Create a new database
-            database = await cosmosClient.CreateDatabaseIfNotExistsAsync(databaseId);
-            Console.WriteLine("Created Database: {0}\n", database.Id);
-        }
-
-        private Container GetContainer(string containerId)
-        {
-            return database.GetContainer(containerId);
-        }
-
-        /// <summary>
-        /// Create the container if it does not exist. 
-        /// Specifiy "/LastName" as the partition key since we're storing family information, to ensure good distribution of requests and storage.
+        /// Add yearly data from college scorecard 
         /// </summary>
         /// <returns></returns>
-        private async Task CreateContainerAsync()
-        {
-            // Create a new container
-            container = await database.CreateContainerIfNotExistsAsync(containerId, "/UNITID");
-            Console.WriteLine("Created Container: {0}\n", container.Id);
-        }
-
-        private void Update()
-        {
-            using StreamReader sr = new StreamReader("c:/Users/Administrator/Downloads/HD2018.csv");
-            var num = 0;
-            string currentLine;
-            // currentLine will be null when the StreamReader reaches the end of file
-            while ((currentLine = sr.ReadLine()) != null)
-            {
-                num++;
-                if (num == 1)
-                    continue;
-                if (num < 40)
-                {
-                    Console.WriteLine("Working on line number: " + (num - 1));
-                    var vals = currentLine.Split(',');
-                    var unitid = vals[0];
-                    var adminurl = vals[17];
-                    var faidurl = vals[18];
-                    var applurl = vals[19];
-                    var hdegofr1 = vals[30];
-                    string degree = GetDegree(hdegofr1);
-                    var countynm = vals[67];  // something wrong in the delimitor, may use field 68 for this!
-                    // TODO: need to combine degree value "Wrong" and Integer-type countynm for wrong indicator for some
-                    // empty space or other error in previous URLs
-                    // record each UNITID and later manually restore!!!
-                    Console.WriteLine($"unitid: {unitid} with adminurl {adminurl}");
-                    Console.WriteLine($"faidurl: {faidurl} with applurl {applurl}");
-                    Console.WriteLine($"countynm: {countynm} with highest degree {degree} and original value {hdegofr1}");
-                    Console.WriteLine();
-                    //Console.WriteLine($"npcurl: {npcurl} with control {control}");
-                    //Console.WriteLine($"st_fips: {st_fips} with region {region}");
-                    //Console.WriteLine($"locale: {locale}");
-                    //Console.WriteLine($"latitude: {latitude} with longitude {longitude}");
-                }
-            }
-        }
-
-        private string GetDegree(string input)
-        {
-            string degree;
-            switch (int.Parse(input))
-            {
-                case 11:
-                case 12:
-                case 13:
-                case 14:
-                    degree = "Doctor";
-                    break;
-                case 20:
-                    degree = "Master";
-                    break;
-                case 30:
-                    degree = "Bachelor";
-                    break;
-                case 40:
-                    degree = "Associate";
-                    break;
-                case 0:
-                case -3:
-                    degree = "None";
-                    break;
-                default:
-                    degree = "Wrong";
-                    break;
-            }
-            return degree;
-        }
-
         private async Task AddScorecardYearlyData()
         {
             using StreamReader sr = new StreamReader("c:/Users/Administrator/Downloads/Most-Recent-Cohorts-All-Data-Elements.csv");
             var num = 0;
-            var localContainer = database.GetContainer("YearlyCollegeData");
+            var localContainer = database.GetContainer("CollegeDataUSYearly");
             string currentLine;
             // currentLine will be null when the StreamReader reaches the end of file
             while ((currentLine = sr.ReadLine()) != null)
@@ -1758,12 +1693,12 @@ namespace OneStopHelper
                 var MN_EARN_WNE_P8 = vals[1695];
                 var MD_EARN_WNE_P8 = vals[1696];
 
-                CollegeUSYearly item = new CollegeUSYearly
+                CollegeDataUSYearly item = new CollegeDataUSYearly
                 {
 
                     UNITID = UNITID,
                     Id = (num - 1).ToString(),
-                    year = "2019",
+                    year = 2019,
                     ADM_RATE = ADM_RATE,
                     ADM_RATE_ALL = ADM_RATE_ALL,
                     SATVR25 = SATVR25,
@@ -1857,68 +1792,83 @@ namespace OneStopHelper
                     MD_EARN_WNE_P8 = MD_EARN_WNE_P8
                 };
 
-                if (num == 2)
+                if (num < 30000)
                 {
-                    Console.WriteLine($"unitid: {UNITID}");
-                    ItemResponse<CollegeUSYearly> res = await localContainer.CreateItemAsync(item, new PartitionKey(item.UNITID));
+                    //Console.WriteLine($"unitid: {UNITID}");
+                    ItemResponse<CollegeDataUSYearly> res = await localContainer.CreateItemAsync(item, new PartitionKey(item.UNITID));
                     Console.WriteLine("Created item in database with id: {0} Operation consumed {1} RUs.\n", res.Resource.Id, res.RequestCharge);
                 }
             }
         }
 
-        private async Task ReadCSV()
+        public async Task StartOperationAsync()
         {
-            using StreamReader sr = new StreamReader("c:/Users/Administrator/Downloads/Most-Recent-Cohorts-All-Data-Elements.csv");
-            var num = 0;
-            string currentLine;
-            // currentLine will be null when the StreamReader reaches the end of file
-            while ((currentLine = sr.ReadLine()) != null)
-            {
-                num++;
-                if (num == 1)
-                    continue;
-                Console.WriteLine("Working on line number: " + (num-1));
-                var vals = currentLine.Split(',');
-                var unitid = vals[0];
-                var instnm = vals[3];
-                var city = vals[4];
-                var stabbr = vals[5];
-                var zip = vals[6];
-                var insturl = vals[8];
-                var npcurl = vals[9];
-                var control = vals[16];
-                var st_fips = vals[17];
-                var region = vals[18];
-                var locale = vals[19];
-                var latitude = vals[21];
-                var longitude = vals[22];
-                CollegeUS college = new CollegeUS
-                {
-                    Id = (num - 1).ToString(),
-                    UNITID = unitid,
-                    INSTNM = instnm,
-                    CITY = city,
-                    STABBR = stabbr,
-                    ZIP = zip,
-                    INSTURL = insturl,
-                    NPCURL = npcurl,
-                    CONTROL = control,
-                    ST_FIPS = st_fips,
-                    REGION = region,
-                    LOCALE = locale,
-                    LATITUDE = latitude,
-                    LONGITUDE = longitude
-                };
-                await AddItemsToContainerAsync(college);
+            // Create a new instance of the Cosmos Client
+            cosmosClient = new CosmosClient(EndpointUri, PrimaryKey);
+            GetDatabase();
+            //await CreateDatabaseAsync();
+            await CreateContainerAsync();
+        }
+        // -----------------------------------------------------------------
+        // Below are the helper methods
+        // -----------------------------------------------------------------
 
-                //Console.WriteLine($"unitid: {unitid} with name {instnm}");
-                //Console.WriteLine($"city: {city} with stabbr {stabbr}");
-                //Console.WriteLine($"zip: {zip} with insturl {insturl}");
-                //Console.WriteLine($"npcurl: {npcurl} with control {control}");
-                //Console.WriteLine($"st_fips: {st_fips} with region {region}");
-                //Console.WriteLine($"locale: {locale}");
-                //Console.WriteLine($"latitude: {latitude} with longitude {longitude}");
+        /// <summary>
+        /// Return degree string with input value of HDEGOFR1 in IPEDS HD table
+        /// </summary>
+        private string GetDegree(string input)
+        {
+            string degree;
+            switch (int.Parse(input))
+            {
+                case 11:
+                case 12:
+                case 13:
+                case 14:
+                    degree = "Doctor";
+                    break;
+                case 20:
+                    degree = "Master";
+                    break;
+                case 30:
+                    degree = "Bachelor";
+                    break;
+                case 40:
+                    degree = "Associate";
+                    break;
+                case 0:
+                case -3:
+                    degree = "None";
+                    break;
+                default:
+                    degree = "Wrong";
+                    break;
             }
+            return degree;
+        }
+
+        private void GetDatabase()
+        {
+            database = cosmosClient.GetDatabase(databaseId);
+        }
+
+        private async Task CreateDatabaseAsync()
+        {
+            // Create a new database
+            database = await cosmosClient.CreateDatabaseIfNotExistsAsync(databaseId);
+            Console.WriteLine("Created Database: {0}\n", database.Id);
+        }
+
+        private Container GetContainer(string containerId)
+        {
+            return database.GetContainer(containerId);
+        }
+
+        private async Task CreateContainerAsync()
+        {
+            // Create a new container
+            container = await database.CreateContainerIfNotExistsAsync(containerId, "/UNITID");
+            //Console.WriteLine("Created Container: {0}\n", container.Id);
         }
 
         /// <summary>
@@ -1956,18 +1906,18 @@ namespace OneStopHelper
         /// <summary>
         /// Run a query (using Azure Cosmos DB SQL syntax) against the container
         /// </summary>
-        private async Task<CollegeUS> QueryItemsAsync(string partitionKey)
+        private async Task<CollegeDataUS> QueryItemsAsync(string partitionKey)
         {
             var sqlQueryText = $"SELECT * FROM c WHERE c.UNITID = '{partitionKey}'";
             //Console.WriteLine("Running query: {0}\n", sqlQueryText);
             QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
-            var it = container.GetItemQueryIterator<CollegeUS>(queryDefinition);
+            var it = container.GetItemQueryIterator<CollegeDataUS>(queryDefinition);
             if (!it.HasMoreResults)
             {
                 Console.WriteLine($"College with UNITID {partitionKey} is not found.");
                 return null;
             }
-            CollegeUS college = null;
+            CollegeDataUS college = null;
             while(it.HasMoreResults)
             {
                 var res = await it.ReadNextAsync();
@@ -1988,12 +1938,11 @@ namespace OneStopHelper
         /// <summary>
         /// Add items to the container
         /// </summary>
-        private async Task AddItemsToContainerAsync(CollegeUS college)
+        private async Task AddItemsToContainerAsync(CollegeDataUS college)
         {
             try
             {
-                ItemResponse<CollegeUS> res = await container.CreateItemAsync<CollegeUS>(college, new PartitionKey(college.UNITID));
-                // Note that after creating the item, we can access the body of the item with the Resource property off the ItemResponse. We can also access the RequestCharge property to see the amount of RUs consumed on this request.
+                ItemResponse<CollegeDataUS> res = await container.CreateItemAsync(college, new PartitionKey(college.UNITID));
                 Console.WriteLine("Created item in database with id: {0} Operation consumed {1} RUs.\n", res.Resource.Id, res.RequestCharge);
             }
             catch (CosmosException ex) 

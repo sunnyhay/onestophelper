@@ -6,7 +6,7 @@ namespace OneStopHelper.Model
     {
         [JsonProperty(PropertyName = "id")]
         public string Id { get; set; }
-        public string CIPCode { get; set; }
+        public string CIPCode { get; set; }  // partition key
         public string CIPTitle { get; set; }
         public string CIPDefinition { get; set; }
     }

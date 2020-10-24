@@ -2,7 +2,7 @@
 
 namespace OneStopHelper.Model
 {
-    public class CollegeUS
+    public class CollegeDataUS
     {
         [JsonProperty(PropertyName ="id")]
         public string Id { get; set; }

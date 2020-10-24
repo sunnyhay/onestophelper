@@ -7,7 +7,7 @@ namespace OneStopHelper.Model
         [JsonProperty(PropertyName = "id")]
         public string Id { get; set; }
         public string UNITID { get; set; }
-        public double year { get; set; }
+        public int year { get; set; }
         public double? FT_UG { get; set; }  //24
         public double? FT_FTUG { get; set; }  //25
         public double? PT_UG { get; set; }  //27
