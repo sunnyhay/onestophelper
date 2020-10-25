@@ -53,7 +53,8 @@ namespace OneStopHelper
                 //await p.AddIPEDSYearlyDataforIC("IPEDSIC");
                 //await p.AddIPEDSYearlyDataforICAY("IPEDSICAY");
                 //await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
-                await p.UpdateYearlyData("IPEDSCDEP");
+                //await p.UpdateYearlyData("IPEDSCDEP");
+                await p.UpdateRankingData();
 
             }
             catch (CosmosException de)
@@ -225,6 +226,54 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
+
+        public async Task UpdateRankingData()
+        {
+            var mainContainer = database.GetContainer("USNewsRanking");
+            var res = await mainContainer.ReadItemAsync<USNewsRanking>("1", new PartitionKey("2021"));
+            var item = res.Resource;
+            Console.WriteLine("id: " + item.Id + " with year: " + item.year);
+            var universities = item.Universities;
+            var libertyColleges = item.LibertyColleges;
+
+            for(int i = 0; i < universities.Count; i++)
+            {
+                var university = universities[i];
+                var univName = university.INSTNM;
+                var condition = $"c.INSTNM = \"{univName}\"";
+                var targetItem = await QueryTableCustomConditionAsync<CollegeDataUS>("CollegeDataUS", condition);
+                if (targetItem == default)
+                {
+                    Console.WriteLine($"Not found the university UNITID for {univName} with rank {university.Rank}");
+                    university.UNITID = "UNKNOWN";
+                } else
+                {
+                    Console.WriteLine($"Found the university UNITID {targetItem.UNITID} for {univName} with rank {university.Rank}");
+                    university.UNITID = targetItem.UNITID;
+                }
+            }
+            for (int i = 0; i < libertyColleges.Count; i++)
+            {
+                var libertyCollege = libertyColleges[i];
+                var collegeName = libertyCollege.INSTNM;
+                var condition = $"c.INSTNM = \"{collegeName}\"";
+                var targetItem = await QueryTableCustomConditionAsync<CollegeDataUS>("CollegeDataUS", condition);
+                if (targetItem == default)
+                {
+                    Console.WriteLine($"Not found the college UNITID for {collegeName} with rank {libertyCollege.Rank}");
+                    libertyCollege.UNITID = "UNKNOWN";
+                }
+                else
+                {
+                    Console.WriteLine($"Found the college UNITID {targetItem.UNITID} for {collegeName} with rank {libertyCollege.Rank}");
+                    libertyCollege.UNITID = targetItem.UNITID;
+                }
+            }
+            ItemResponse<USNewsRanking> result = await mainContainer.UpsertItemAsync(item, new PartitionKey("2021"));
+            Console.WriteLine($"Updated item in database with id: {0} Operation consumed {1} RUs.\n", result.Resource.Id, result.RequestCharge);
+
+        }
+
 
         // each containerId corresponds to a prepared IPEDS table like IPEDSADM to update the main table
         public async Task UpdateYearlyData(string containerId)
@@ -1885,6 +1934,35 @@ namespace OneStopHelper
         private async Task<T> QueryTableAsync<T>(string containerName, string partitionKey)
         {
             var sqlQueryText = $"SELECT * FROM c WHERE c.UNITID = '{partitionKey}'";
+            //Console.WriteLine("Running query: {0}\n", sqlQueryText);
+            QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
+            var localContainer = database.GetContainer(containerName);
+            var it = localContainer.GetItemQueryIterator<T>(queryDefinition);
+            if (!it.HasMoreResults)
+            {
+                //Console.WriteLine($"UNITID {partitionKey} is not found.");
+                return default;
+            }
+            T item = default;
+            while (it.HasMoreResults)
+            {
+                var res = await it.ReadNextAsync();
+                if (res.Count == 0)
+                {
+                    //Console.WriteLine($"College with UNITID {partitionKey} is not found.");
+                    return default;
+                }
+                foreach (var val in res)
+                {
+                    item = val;
+                }
+            }
+            return item;
+        }
+
+        private async Task<T> QueryTableCustomConditionAsync<T>(string containerName, string condition)
+        {
+            var sqlQueryText = $"SELECT * FROM c WHERE {condition}" ;
             //Console.WriteLine("Running query: {0}\n", sqlQueryText);
             QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
             var localContainer = database.GetContainer(containerName);
