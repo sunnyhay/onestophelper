@@ -5,6 +5,7 @@ using System.IO;
 using ExcelDataReader;
 using OneStopHelper.Model;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OneStopHelper
 {
@@ -54,7 +55,7 @@ namespace OneStopHelper
                 //await p.AddIPEDSYearlyDataforICAY("IPEDSICAY");
                 //await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
                 //await p.UpdateYearlyData("IPEDSCDEP");
-                await p.UpdateRankingData();
+                await p.ValidateRankingData();
 
             }
             catch (CosmosException de)
@@ -272,6 +273,29 @@ namespace OneStopHelper
             ItemResponse<USNewsRanking> result = await mainContainer.UpsertItemAsync(item, new PartitionKey("2021"));
             Console.WriteLine($"Updated item in database with id: {0} Operation consumed {1} RUs.\n", result.Resource.Id, result.RequestCharge);
 
+        }
+        public async Task ValidateRankingData()
+        {
+            var mainContainer = database.GetContainer("USNewsRanking");
+            var res = await mainContainer.ReadItemAsync<USNewsRanking>("1", new PartitionKey("2021"));
+            var item = res.Resource;
+            Console.WriteLine("id: " + item.Id + " with year: " + item.year);
+            var universities = item.Universities;
+            var libertyColleges = item.LibertyColleges;
+            var list = universities.Concat(libertyColleges).ToList();
+            
+            for(int i = 0; i < list.Count; i++)
+            {
+                var college = list[i];
+                for(int j = i+1; j < list.Count; j++)
+                {
+                    var target = list[j];
+                    if (college.UNITID.Equals(target.UNITID))
+                    {
+                        Console.WriteLine("Found duplicate UNITID: " + target.UNITID);
+                    }
+                }
+            }
         }
 
 
