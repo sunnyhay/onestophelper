@@ -6,6 +6,8 @@ using ExcelDataReader;
 using OneStopHelper.Model;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace OneStopHelper
 {
@@ -29,6 +31,7 @@ namespace OneStopHelper
         private readonly string databaseId = "OneStop";
         private readonly string containerId = "CollegeDataUS";
         private readonly string rootPath = "c:/Users/Administrator/Documents/";
+        private readonly string commonDatasetFilePath = "c:/Users/Administrator/Documents/CommonDataset";
         private readonly int CURRENTYEAR = 2019;
 
         public static async Task Main(string[] args)
@@ -55,7 +58,8 @@ namespace OneStopHelper
                 //await p.AddIPEDSYearlyDataforICAY("IPEDSICAY");
                 //await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
                 //await p.UpdateYearlyData("IPEDSCDEP");
-                await p.ValidateRankingData();
+                //await p.ValidateRankingData();
+                await p.UpdateCommonDataset();
 
             }
             catch (CosmosException de)
@@ -298,6 +302,48 @@ namespace OneStopHelper
             }
         }
 
+        public async Task UpdateCommonDataset()
+        {
+            var container = database.GetContainer("CommonDataset");
+            int count = 0;
+            foreach (string filename in Directory.EnumerateFiles(commonDatasetFilePath, "*.json"))
+            {
+                count++;
+                //string contents = File.ReadAllText(file);
+                Console.WriteLine("File name: " + filename);
+                //Console.WriteLine(contents);
+                using StreamReader file = File.OpenText(filename);
+                using JsonTextReader reader = new JsonTextReader(file);
+                JObject json = (JObject)JToken.ReadFrom(reader);
+                //Console.WriteLine(json["waiting"]["hasWaiting"]);
+                Console.WriteLine("Current college is " + json["year"].ToString());
+                CommonDatasetModel model = new CommonDatasetModel
+                {
+                    Id = json["UNITID"].ToString(),
+                    UNITID = json["UNITID"].ToString(),
+                    year = int.Parse(json["year"].ToString()),
+                    Waiting = json["waiting"],
+                    AdmDecision = json["admDecision"],
+                    SatAct = json["satAct"],
+                    Gpa = json["gpa"],
+                    Apply = json["apply"],
+                    Transfer = json["transfer"]
+                };
+                ItemResponse<CommonDatasetModel> res = null;
+                try
+                {
+                    res = await container.ReadItemAsync<CommonDatasetModel>(model.Id, new PartitionKey(model.UNITID));
+                    Console.WriteLine("Found the model with UNITID: " + res.Resource.UNITID);
+                } catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound) {}
+                if (res == null)
+                {
+                    Console.WriteLine("Not found the college " + json["name"]);
+                    ItemResponse<CommonDatasetModel> result = await container.CreateItemAsync(model, new PartitionKey(model.UNITID));
+                    Console.WriteLine("Created model in database with id: {0} Operation consumed {1} RUs.\n", result.Resource.Id, result.RequestCharge);
+                }
+                          
+            }
+        }
 
         // each containerId corresponds to a prepared IPEDS table like IPEDSADM to update the main table
         public async Task UpdateYearlyData(string containerId)
