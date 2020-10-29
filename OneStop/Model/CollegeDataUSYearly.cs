@@ -445,6 +445,6 @@ namespace OneStopHelper.Model
         // ----------------------------------------------
         // IPEDS Yearly Data END
         // ----------------------------------------------
-
+        public CommonDatasetModel CommonData { get; set; }
     }
 }

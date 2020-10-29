@@ -59,8 +59,8 @@ namespace OneStopHelper
                 //await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
                 //await p.UpdateYearlyData("IPEDSCDEP");
                 //await p.ValidateRankingData();
-                await p.UpdateCommonDataset();
-
+                //await p.UpdateCommonDataset();
+                await p.UpdateYearlDataWithCommonDataset();
             }
             catch (CosmosException de)
             {
@@ -342,6 +342,36 @@ namespace OneStopHelper
                     Console.WriteLine("Created model in database with id: {0} Operation consumed {1} RUs.\n", result.Resource.Id, result.RequestCharge);
                 }
                           
+            }
+        }
+
+        public async Task UpdateYearlDataWithCommonDataset()
+        {
+            var targetContainer = database.GetContainer("CollegeDataUSYearly");
+            var srcContainer = database.GetContainer("CommonDataset");
+            // iterate each model in CommonDataset and update CollegeDataUSYearly accordingly
+            var sqlQueryText = "SELECT * FROM c";
+            QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
+            var it = srcContainer.GetItemQueryIterator<CommonDatasetModel>(queryDefinition);
+            while (it.HasMoreResults)
+            {
+                var res = await it.ReadNextAsync();
+                foreach (var item in res)
+                {
+                    Console.WriteLine($"Found this UNITID {item.UNITID}");
+                    var filterQueryText = $"SELECT * FROM c where c.UNITID ='{item.UNITID}'";
+                    QueryDefinition innerQueryDef = new QueryDefinition(filterQueryText);
+                    var innerIt = targetContainer.GetItemQueryIterator<CollegeDataUSYearly>(innerQueryDef);
+                    while(innerIt.HasMoreResults)
+                    {
+                        var result = await innerIt.ReadNextAsync();
+                        CollegeDataUSYearly dataItem = result.First();
+                        Console.WriteLine($"Found corresponding college {dataItem.UNITID} in yearly data!");
+                        dataItem.CommonData = item;
+                        ItemResponse<CollegeDataUSYearly> outcome = await targetContainer.UpsertItemAsync(dataItem, new PartitionKey(dataItem.UNITID));
+                        Console.WriteLine($"For UNITID {dataItem.UNITID} updated item in database with id: {0} Operation consumed {1} RUs.\n", outcome.Resource.Id, outcome.RequestCharge);
+                    }
+                }
             }
         }
 
