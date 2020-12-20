@@ -16,7 +16,7 @@ namespace OneStopHelper
         // The Azure Cosmos DB endpoint for running this sample.
         private static readonly string EndpointUri = "https://localhost:8081";
         // The primary key for the Azure Cosmos account.
-        private static readonly string PrimaryKey = "";
+        private static readonly string PrimaryKey = "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
 
         // The Cosmos client instance
         private CosmosClient cosmosClient;
@@ -31,7 +31,8 @@ namespace OneStopHelper
         private readonly string databaseId = "OneStop";
         private readonly string containerId = "CollegeDataUS";
         private readonly string rootPath = "c:/Users/Administrator/Documents/";
-        private readonly string commonDatasetFilePath = "c:/Users/Administrator/Documents/CommonDataset";
+        private static readonly string commonDatasetFilePath = "c:/Users/Administrator/Documents/CommonDataset-University";
+        private static readonly string commonDatasetCollegeFilePath = "c:/Users/Administrator/Documents/CommonDataset-College";
         private readonly int CURRENTYEAR = 2019;
 
         public static async Task Main(string[] args)
@@ -59,8 +60,9 @@ namespace OneStopHelper
                 //await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
                 //await p.UpdateYearlyData("IPEDSCDEP");
                 //await p.ValidateRankingData();
-                //await p.UpdateCommonDataset();
-                await p.UpdateYearlDataWithCommonDataset();
+                //await p.UpdateCommonDataset(commonDatasetCollegeFilePath);
+                //await p.UpdateYearlDataWithCommonDataset();
+                //p.ValidateCommonDatasetFile();
             }
             catch (CosmosException de)
             {
@@ -302,11 +304,82 @@ namespace OneStopHelper
             }
         }
 
-        public async Task UpdateCommonDataset()
+        public void ValidateCommonDatasetFile()
+        {
+            int count = 0;
+            Dictionary<string, string> map = new Dictionary<string, string>();
+            ISet<string> unitids = new HashSet<string>();
+
+            // iteration 1 for empty UNITID or college name
+            foreach (string filename in Directory.EnumerateFiles(commonDatasetFilePath, "*.json"))
+            {
+                count++;
+                //Console.WriteLine("File name: " + filename);
+                using StreamReader file = File.OpenText(filename);
+                using JsonTextReader reader = new JsonTextReader(file);
+                JObject json = (JObject)JToken.ReadFrom(reader);
+                var unitid = json["UNITID"].ToString();
+                var year = json["year"].ToString();
+                var name = json["name"].ToString();
+                if (name == "")
+                {
+                    Console.WriteLine($"File {filename} has empty university name");
+                }
+                if (unitid == "")
+                {
+                    Console.WriteLine($"File {filename} has empty UNITID");
+                }
+                //Console.WriteLine($"Current college is {name} with UNITID {unitid} in year {year}!");
+                unitids.Add(unitid);
+                if (map.ContainsKey(name))
+                {
+                    Console.WriteLine($"This college has duplicate name {name}!");
+                } else
+                {
+                    map.Add(name, unitid);
+                }
+            }
+            foreach (string filename in Directory.EnumerateFiles(commonDatasetCollegeFilePath, "*.json"))
+            {
+                count++;
+                //Console.WriteLine("File name: " + filename);
+                using StreamReader file = File.OpenText(filename);
+                using JsonTextReader reader = new JsonTextReader(file);
+                JObject json = (JObject)JToken.ReadFrom(reader);
+                var unitid = json["UNITID"].ToString();
+                var year = json["year"].ToString();
+                var name = json["name"].ToString();
+                if (name == "")
+                {
+                    Console.WriteLine($"File {filename} has empty university name");
+                }
+                if (unitid == "")
+                {
+                    Console.WriteLine($"File {filename} has empty UNITID");
+                }
+                //Console.WriteLine($"Current college is {name} with UNITID {unitid} in year {year}!");
+                unitids.Add(unitid);
+                if (map.ContainsKey(name))
+                {
+                    Console.WriteLine($"This college has duplicate name {name}!");
+                }
+                else
+                {
+                    map.Add(name, unitid);
+                }
+            }
+            Console.WriteLine($"Totally {count} colleges are covered in Common Dataset!");
+            Console.WriteLine($"Found map entries {map.Count}");
+
+            // validate duplicate UNITID
+            Console.WriteLine($"Unique UNITID number: {unitids.Count}");
+            
+        }
+        public async Task UpdateCommonDataset(string inputFile)
         {
             var container = database.GetContainer("CommonDataset");
             int count = 0;
-            foreach (string filename in Directory.EnumerateFiles(commonDatasetFilePath, "*.json"))
+            foreach (string filename in Directory.EnumerateFiles(inputFile, "*.json"))
             {
                 count++;
                 //string contents = File.ReadAllText(file);
@@ -343,6 +416,7 @@ namespace OneStopHelper
                 }
                           
             }
+            Console.WriteLine($"Updated {count} number of colleges for file {inputFile}");
         }
 
         public async Task UpdateYearlDataWithCommonDataset()
