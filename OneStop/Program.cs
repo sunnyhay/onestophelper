@@ -58,9 +58,9 @@ namespace OneStopHelper
                 //await p.AddIPEDSYearlyDataforIC("IPEDSIC");
                 //await p.AddIPEDSYearlyDataforICAY("IPEDSICAY");
                 //await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
-                //await p.UpdateYearlyData("IPEDSCDEP");
+                //await p.UpdateYearlyData("IPEDSSSIS");
                 //await p.ValidateRankingData();
-                //await p.UpdateCommonDataset(commonDatasetCollegeFilePath);
+                await p.UpdateCommonDataset(commonDatasetCollegeFilePath);
                 //await p.UpdateYearlDataWithCommonDataset();
                 //p.ValidateCommonDatasetFile();
             }
@@ -79,7 +79,7 @@ namespace OneStopHelper
                 Console.ReadKey();
             }
         }
-        
+
         /// <summary>
         /// Add the basic college data without yearly info from College ScoreCard dataset
         /// </summary>
@@ -203,7 +203,7 @@ namespace OneStopHelper
                     var cipCode = reader.GetString(1);
                     var cipTitle = reader.GetString(4);
                     var cipDefinition = reader.GetString(5);
-                    
+
                     var id = (count - 1).ToString();
                     var idNum = count - 1;
                     var localContainer = GetContainer(containerId);
@@ -243,7 +243,7 @@ namespace OneStopHelper
             var universities = item.Universities;
             var libertyColleges = item.LibertyColleges;
 
-            for(int i = 0; i < universities.Count; i++)
+            for (int i = 0; i < universities.Count; i++)
             {
                 var university = universities[i];
                 var univName = university.INSTNM;
@@ -253,7 +253,8 @@ namespace OneStopHelper
                 {
                     Console.WriteLine($"Not found the university UNITID for {univName} with rank {university.Rank}");
                     university.UNITID = "UNKNOWN";
-                } else
+                }
+                else
                 {
                     Console.WriteLine($"Found the university UNITID {targetItem.UNITID} for {univName} with rank {university.Rank}");
                     university.UNITID = targetItem.UNITID;
@@ -289,11 +290,11 @@ namespace OneStopHelper
             var universities = item.Universities;
             var libertyColleges = item.LibertyColleges;
             var list = universities.Concat(libertyColleges).ToList();
-            
-            for(int i = 0; i < list.Count; i++)
+
+            for (int i = 0; i < list.Count; i++)
             {
                 var college = list[i];
-                for(int j = i+1; j < list.Count; j++)
+                for (int j = i + 1; j < list.Count; j++)
                 {
                     var target = list[j];
                     if (college.UNITID.Equals(target.UNITID))
@@ -334,7 +335,8 @@ namespace OneStopHelper
                 if (map.ContainsKey(name))
                 {
                     Console.WriteLine($"This college has duplicate name {name}!");
-                } else
+                }
+                else
                 {
                     map.Add(name, unitid);
                 }
@@ -373,7 +375,7 @@ namespace OneStopHelper
 
             // validate duplicate UNITID
             Console.WriteLine($"Unique UNITID number: {unitids.Count}");
-            
+
         }
         public async Task UpdateCommonDataset(string inputFile)
         {
@@ -407,14 +409,15 @@ namespace OneStopHelper
                 {
                     res = await container.ReadItemAsync<CommonDatasetModel>(model.Id, new PartitionKey(model.UNITID));
                     Console.WriteLine("Found the model with UNITID: " + res.Resource.UNITID);
-                } catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound) {}
+                }
+                catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound) { }
                 if (res == null)
                 {
                     Console.WriteLine("Not found the college " + json["name"]);
                     ItemResponse<CommonDatasetModel> result = await container.CreateItemAsync(model, new PartitionKey(model.UNITID));
                     Console.WriteLine("Created model in database with id: {0} Operation consumed {1} RUs.\n", result.Resource.Id, result.RequestCharge);
                 }
-                          
+
             }
             Console.WriteLine($"Updated {count} number of colleges for file {inputFile}");
         }
@@ -436,12 +439,12 @@ namespace OneStopHelper
                     var filterQueryText = $"SELECT * FROM c where c.UNITID ='{item.UNITID}'";
                     QueryDefinition innerQueryDef = new QueryDefinition(filterQueryText);
                     var innerIt = targetContainer.GetItemQueryIterator<CollegeDataUSYearly>(innerQueryDef);
-                    while(innerIt.HasMoreResults)
+                    while (innerIt.HasMoreResults)
                     {
                         var result = await innerIt.ReadNextAsync();
                         CollegeDataUSYearly dataItem = result.First();
                         Console.WriteLine($"Found corresponding college {dataItem.UNITID} in yearly data!");
-                        dataItem.CommonData = item;
+                        dataItem.CommonData = new CommonDatasetModel[] { item };
                         ItemResponse<CollegeDataUSYearly> outcome = await targetContainer.UpsertItemAsync(dataItem, new PartitionKey(dataItem.UNITID));
                         Console.WriteLine($"For UNITID {dataItem.UNITID} updated item in database with id: {0} Operation consumed {1} RUs.\n", outcome.Resource.Id, outcome.RequestCharge);
                     }
@@ -456,7 +459,6 @@ namespace OneStopHelper
             var sqlQueryText = $"SELECT * FROM c";
             QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
             var it = mainContainer.GetItemQueryIterator<CollegeDataUSYearly>(queryDefinition);
-            //var destContainer = database.GetContainer(containerId);
             int count = 0;
             while (it.HasMoreResults)
             {
@@ -471,292 +473,339 @@ namespace OneStopHelper
                     {
                         if (containerId.Equals("IPEDSADM"))
                         {
-                            item.APPLCN = targetItem.APPLCN;
-                            item.APPLCNM = targetItem.APPLCNM;
-                            item.APPLCNW = targetItem.APPLCNW;
-                            item.ADMSSN = targetItem.ADMSSN;
-                            item.ADMSSNM = targetItem.ADMSSNM;
-                            item.ADMSSNW = targetItem.ADMSSNW;
-                            item.ENRLT = targetItem.ENRLT;
-                            item.ENRLM = targetItem.ENRLM;
-                            item.ENRLW = targetItem.ENRLW;
-                            item.ENRLFT = targetItem.ENRLFT;
-                            item.ENRLFTM = targetItem.ENRLFTM;
-                            item.ENRLFTW = targetItem.ENRLFTW;
-                            item.ENRLPT = targetItem.ENRLPT;
-                            item.ENRLPTM = targetItem.ENRLPTM;
-                            item.ENRLPTW = targetItem.ENRLPTW;
-                            item.SATNUM = targetItem.SATNUM;
-                            item.SATPCT = targetItem.SATPCT;
-                            item.ACTNUM = targetItem.ACTNUM;
-                            item.ACTPCT = targetItem.ACTPCT;
+                            CollegeDataUSYearly_ADM obj = new CollegeDataUSYearly_ADM
+                            {
+                                Year = 2018,
+                                APPLCN = targetItem.APPLCN,
+                                APPLCNM = targetItem.APPLCNM,
+                                APPLCNW = targetItem.APPLCNW,
+                                ADMSSN = targetItem.ADMSSN,
+                                ADMSSNM = targetItem.ADMSSNM,
+                                ADMSSNW = targetItem.ADMSSNW,
+                                ENRLT = targetItem.ENRLT,
+                                ENRLM = targetItem.ENRLM,
+                                ENRLW = targetItem.ENRLW,
+                                ENRLFT = targetItem.ENRLFT,
+                                ENRLFTM = targetItem.ENRLFTM,
+                                ENRLFTW = targetItem.ENRLFTW,
+                                ENRLPT = targetItem.ENRLPT,
+                                ENRLPTM = targetItem.ENRLPTM,
+                                ENRLPTW = targetItem.ENRLPTW,
+                                SATNUM = targetItem.SATNUM,
+                                SATPCT = targetItem.SATPCT,
+                                ACTNUM = targetItem.ACTNUM,
+                                ACTPCT = targetItem.ACTPCT
+                            };
+                            item.IPEDSADM = new CollegeDataUSYearly_ADM[] { obj };
+                            
                         }
                         else if (containerId.Equals("IPEDSAL"))
                         {
-                            item.LPBOOKS = targetItem.LPBOOKS;
-                            item.LEBOOKS = targetItem.LEBOOKS;
-                            item.LEDATAB = targetItem.LEDATAB;
-                            item.LPMEDIA = targetItem.LPMEDIA;
-                            item.LEMEDIA = targetItem.LEMEDIA;
-                            item.LPCLLCT = targetItem.LPCLLCT;
-                            item.LECLLCT = targetItem.LECLLCT;
-                            item.LTCLLCT = targetItem.LTCLLCT;
-                            item.LPCRCLT = targetItem.LPCRCLT;
-                            item.LECRCLT = targetItem.LECRCLT;
-                            item.LTCRCLT = targetItem.LTCRCLT;
+                            CollegeDataUSYearly_AL obj = new CollegeDataUSYearly_AL
+                            {
+                                Year = 2018,
+                                LPBOOKS = targetItem.LPBOOKS,
+                                LEBOOKS = targetItem.LEBOOKS,
+                                LEDATAB = targetItem.LEDATAB,
+                                LPMEDIA = targetItem.LPMEDIA,
+                                LEMEDIA = targetItem.LEMEDIA,
+                                LPCLLCT = targetItem.LPCLLCT,
+                                LECLLCT = targetItem.LECLLCT,
+                                LTCLLCT = targetItem.LTCLLCT,
+                                LPCRCLT = targetItem.LPCRCLT,
+                                LECRCLT = targetItem.LECRCLT,
+                                LTCRCLT = targetItem.LTCRCLT
+                            };
+                            item.IPEDSAL = new CollegeDataUSYearly_AL[] { obj };
+                            
                         }
                         else if (containerId.Equals("IPEDSCDEP"))
                         {
-                            item.Items = targetItem.Items;
+                            item.CDEP = targetItem.Items;
                         }
                         else if (containerId.Equals("IPEDSDRVC"))
                         {
-                            item.DOCDEGRS = targetItem.DOCDEGRS;
-                            item.DOCDEGPP = targetItem.DOCDEGPP;
-                            item.DOCDEGOT = targetItem.DOCDEGOT;
-                            item.MASDEG = targetItem.MASDEG;
-                            item.BASDEG = targetItem.BASDEG;
-                            item.ASCDEG = targetItem.ASCDEG;
-                            item.CERT4 = targetItem.CERT4;
-                            item.CERT2 = targetItem.CERT2;
-                            item.CERT1 = targetItem.CERT1;
-                            item.PBACERT = targetItem.PBACERT;
-                            item.PMACERT = targetItem.PMACERT;
-                            item.SDOCDEG = targetItem.SDOCDEG;
-                            item.SMASDEG = targetItem.SMASDEG;
-                            item.SBASDEG = targetItem.SBASDEG;
-                            item.SASCDEG = targetItem.SASCDEG;
-                            item.SBAMACRT = targetItem.SBAMACRT;
-                            item.SCERT24 = targetItem.SCERT24;
-                            item.SCERT1 = targetItem.SCERT1;
+                            CollegeDataUSYearly_DRVC obj = new CollegeDataUSYearly_DRVC
+                            {
+                                Year = 2018,
+                                DOCDEGRS = targetItem.DOCDEGRS,
+                                DOCDEGPP = targetItem.DOCDEGPP,
+                                DOCDEGOT = targetItem.DOCDEGOT,
+                                MASDEG = targetItem.MASDEG,
+                                BASDEG = targetItem.BASDEG,
+                                ASCDEG = targetItem.ASCDEG,
+                                CERT4 = targetItem.CERT4,
+                                CERT2 = targetItem.CERT2,
+                                CERT1 = targetItem.CERT1,
+                                PBACERT = targetItem.PBACERT,
+                                PMACERT = targetItem.PMACERT,
+                                SDOCDEG = targetItem.SDOCDEG,
+                                SMASDEG = targetItem.SMASDEG,
+                                SBASDEG = targetItem.SBASDEG,
+                                SASCDEG = targetItem.SASCDEG,
+                                SBAMACRT = targetItem.SBAMACRT,
+                                SCERT24 = targetItem.SCERT24,
+                                SCERT1 = targetItem.SCERT1
+                            };
+                            item.IPEDSDRVC = new CollegeDataUSYearly_DRVC[] { obj };
                         }
                         else if (containerId.Equals("IPEDSDRVEF"))
                         {
-                            item.ENRTOT = targetItem.ENRTOT;
-                            item.ENRFT = targetItem.ENRFT;
-                            item.ENRPT = targetItem.ENRPT;
-                            item.PCTENRWH = targetItem.PCTENRWH;
-                            item.PCTENRBK = targetItem.PCTENRBK;
-                            item.PCTENRHS = targetItem.PCTENRHS;
-                            item.PCTENRAP = targetItem.PCTENRAP;
-                            item.PCTENRAS = targetItem.PCTENRAS;
-                            item.PCTENRAN = targetItem.PCTENRAN;
-                            item.PCTENRUN = targetItem.PCTENRUN;
-                            item.PCTENRNR = targetItem.PCTENRNR;
-                            item.PCTENRW = targetItem.PCTENRW;
-                            item.EFUGFT = targetItem.EFUGFT;
-                            item.PCUENRWH = targetItem.PCUENRWH;
-                            item.PCUENRBK = targetItem.PCUENRBK;
-                            item.PCUENRHS = targetItem.PCUENRHS;
-                            item.PCUENRAP = targetItem.PCUENRAP;
-                            item.PCUENRAS = targetItem.PCUENRAS;
-                            item.PCUENRAN = targetItem.PCUENRAN;
-                            item.PCUENR2M = targetItem.PCUENR2M;
-                            item.PCUENRUN = targetItem.PCUENRUN;
-                            item.PCUENRNR = targetItem.PCUENRNR;
-                            item.PCUENRW = targetItem.PCUENRW;
-                            item.EFGRAD = targetItem.EFGRAD;
-                            item.PCGENRWH = targetItem.PCGENRWH;
-                            item.PCGENRBK = targetItem.PCGENRBK;
-                            item.PCGENRHS = targetItem.PCGENRHS;
-                            item.PCGENRAP = targetItem.PCGENRAP;
-                            item.PCGENRAN = targetItem.PCGENRAN;
-                            item.PCGENR2M = targetItem.PCGENR2M;
-                            item.PCGENRUN = targetItem.PCGENRUN;
-                            item.PCGENRNR = targetItem.PCGENRNR;
-                            item.PCGENRW = targetItem.PCGENRW;
+                            CollegeDataUSYearly_DRVEF obj = new CollegeDataUSYearly_DRVEF
+                            {
+                                Year = 2018,
+                                ENRTOT = targetItem.ENRTOT,
+                                ENRFT = targetItem.ENRFT,
+                                ENRPT = targetItem.ENRPT,
+                                PCTENRWH = targetItem.PCTENRWH,
+                                PCTENRBK = targetItem.PCTENRBK,
+                                PCTENRHS = targetItem.PCTENRHS,
+                                PCTENRAP = targetItem.PCTENRAP,
+                                PCTENRAS = targetItem.PCTENRAS,
+                                PCTENRAN = targetItem.PCTENRAN,
+                                PCTENRUN = targetItem.PCTENRUN,
+                                PCTENRNR = targetItem.PCTENRNR,
+                                PCTENRW = targetItem.PCTENRW,
+                                EFUGFT = targetItem.EFUGFT,
+                                PCUENRWH = targetItem.PCUENRWH,
+                                PCUENRBK = targetItem.PCUENRBK,
+                                PCUENRHS = targetItem.PCUENRHS,
+                                PCUENRAP = targetItem.PCUENRAP,
+                                PCUENRAS = targetItem.PCUENRAS,
+                                PCUENRAN = targetItem.PCUENRAN,
+                                PCUENR2M = targetItem.PCUENR2M,
+                                PCUENRUN = targetItem.PCUENRUN,
+                                PCUENRNR = targetItem.PCUENRNR,
+                                PCUENRW = targetItem.PCUENRW,
+                                EFGRAD = targetItem.EFGRAD,
+                                PCGENRWH = targetItem.PCGENRWH,
+                                PCGENRBK = targetItem.PCGENRBK,
+                                PCGENRHS = targetItem.PCGENRHS,
+                                PCGENRAP = targetItem.PCGENRAP,
+                                PCGENRAN = targetItem.PCGENRAN,
+                                PCGENR2M = targetItem.PCGENR2M,
+                                PCGENRUN = targetItem.PCGENRUN,
+                                PCGENRNR = targetItem.PCGENRNR,
+                                PCGENRW = targetItem.PCGENRW
+                            };
+                            item.IPEDSDRVEF = new CollegeDataUSYearly_DRVEF[] { obj };
                         }
                         else if (containerId.Equals("IPEDSDRVGR"))
                         {
-                            item.GRRTTOT = targetItem.GRRTTOT;
-                            item.GRRTM = targetItem.GRRTM;
-                            item.GRRTW = targetItem.GRRTW;
-                            item.GRRTAN = targetItem.GRRTAN;
-                            item.GRRTAP = targetItem.GRRTAP;
-                            item.GRRTAS = targetItem.GRRTAS;
-                            item.GRRTNH = targetItem.GRRTNH;
-                            item.GRRTBK = targetItem.GRRTBK;
-                            item.GRRTHS = targetItem.GRRTHS;
-                            item.GRRTWH = targetItem.GRRTWH;
-                            item.GRRT2M = targetItem.GRRT2M;
-                            item.GRRTUN = targetItem.GRRTUN;
-                            item.GRRTNR = targetItem.GRRTNR;
-                            item.TRRTTOT = targetItem.TRRTTOT;
-                            item.GBA4RTT = targetItem.GBA4RTT;
-                            item.GBA5RTT = targetItem.GBA5RTT;
-                            item.GBA6RTT = targetItem.GBA6RTT;
-                            item.GBA6RTM = targetItem.GBA6RTM;
-                            item.GBA6RTW = targetItem.GBA6RTW;
-                            item.GBA6RTAN = targetItem.GBA6RTAN;
-                            item.GBA6RTAP = targetItem.GBA6RTAP;
-                            item.GBA6RTAS = targetItem.GBA6RTAS;
-                            item.GBA6RTNH = targetItem.GBA6RTNH;
-                            item.GBA6RTBK = targetItem.GBA6RTBK;
-                            item.GBA6RTHS = targetItem.GBA6RTHS;
-                            item.GBA6RTWH = targetItem.GBA6RTWH;
-                            item.GBA6RT2M = targetItem.GBA6RT2M;
-                            item.GBA6RTUN = targetItem.GBA6RTUN;
-                            item.GBA6RTNR = targetItem.GBA6RTNR;
-                            item.GBATRRT = targetItem.GBATRRT;
+                            CollegeDataUSYearly_DRVGR obj = new CollegeDataUSYearly_DRVGR
+                            {
+                                Year = 2018,
+                                GRRTTOT = targetItem.GRRTTOT,
+                                GRRTM = targetItem.GRRTM,
+                                GRRTW = targetItem.GRRTW,
+                                GRRTAN = targetItem.GRRTAN,
+                                GRRTAP = targetItem.GRRTAP,
+                                GRRTAS = targetItem.GRRTAS,
+                                GRRTNH = targetItem.GRRTNH,
+                                GRRTBK = targetItem.GRRTBK,
+                                GRRTHS = targetItem.GRRTHS,
+                                GRRTWH = targetItem.GRRTWH,
+                                GRRT2M = targetItem.GRRT2M,
+                                GRRTUN = targetItem.GRRTUN,
+                                GRRTNR = targetItem.GRRTNR,
+                                TRRTTOT = targetItem.TRRTTOT,
+                                GBA4RTT = targetItem.GBA4RTT,
+                                GBA5RTT = targetItem.GBA5RTT,
+                                GBA6RTT = targetItem.GBA6RTT,
+                                GBA6RTM = targetItem.GBA6RTM,
+                                GBA6RTW = targetItem.GBA6RTW,
+                                GBA6RTAN = targetItem.GBA6RTAN,
+                                GBA6RTAP = targetItem.GBA6RTAP,
+                                GBA6RTAS = targetItem.GBA6RTAS,
+                                GBA6RTNH = targetItem.GBA6RTNH,
+                                GBA6RTBK = targetItem.GBA6RTBK,
+                                GBA6RTHS = targetItem.GBA6RTHS,
+                                GBA6RTWH = targetItem.GBA6RTWH,
+                                GBA6RT2M = targetItem.GBA6RT2M,
+                                GBA6RTUN = targetItem.GBA6RTUN,
+                                GBA6RTNR = targetItem.GBA6RTNR,
+                                GBATRRT = targetItem.GBATRRT
+                            };
+                            item.IPEDSDRVGR = new CollegeDataUSYearly_DRVGR[] { obj };
                         }
                         else if (containerId.Equals("IPEDSDRVIC"))
                         {
-                            item.CINDON = targetItem.CINDON;
-                            item.CINSON = targetItem.CINSON;
-                            item.COTSON = targetItem.COTSON;
-                            item.CINDOFF = targetItem.CINDOFF;
-                            item.CINSOFF = targetItem.CINSOFF;
-                            item.COTSOFF = targetItem.COTSOFF;
-                            item.CINDFAM = targetItem.CINDFAM;
-                            item.CINSFAM = targetItem.CINSFAM;
-                            item.COTSFAM = targetItem.COTSFAM;
+                            CollegeDataUSYearly_DRVIC obj = new CollegeDataUSYearly_DRVIC
+                            {
+                                Year = 2018,
+                                CINDON = targetItem.CINDON,
+                                CINSON = targetItem.CINSON,
+                                COTSON = targetItem.COTSON,
+                                CINDOFF = targetItem.CINDOFF,
+                                CINSOFF = targetItem.CINSOFF,
+                                COTSOFF = targetItem.COTSOFF,
+                                CINDFAM = targetItem.CINDFAM,
+                                CINSFAM = targetItem.CINSFAM,
+                                COTSFAM = targetItem.COTSFAM
+                            };
+                            item.IPEDSDRVIC = new CollegeDataUSYearly_DRVIC[] { obj };
                         }
                         else if (containerId.Equals("IPEDSIC"))
                         {
-                            item.FT_UG = targetItem.FT_UG;
-                            item.FT_FTUG = targetItem.FT_FTUG;
-                            item.PT_UG = targetItem.PT_UG;
-                            item.PT_FTUG = targetItem.PT_FTUG;
-                            item.ROOM = targetItem.ROOM;
-                            item.ROOMCAP = targetItem.ROOMCAP;
-                            item.BOARD = targetItem.BOARD;
-                            item.ROOMAMT = targetItem.ROOMAMT;
-                            item.BOARDAMT = targetItem.BOARDAMT;
-                            item.RMBRDAMT = targetItem.RMBRDAMT;
-                            item.APPLFEEU = targetItem.APPLFEEU;
-                            item.APPLFEEG = targetItem.APPLFEEG;
+                            CollegeDataUSYearly_IC obj = new CollegeDataUSYearly_IC
+                            {
+                                Year = 2018,
+                                FT_UG = targetItem.FT_UG,
+                                FT_FTUG = targetItem.FT_FTUG,
+                                PT_UG = targetItem.PT_UG,
+                                PT_FTUG = targetItem.PT_FTUG,
+                                ROOM = targetItem.ROOM,
+                                ROOMCAP = targetItem.ROOMCAP,
+                                BOARD = targetItem.BOARD,
+                                ROOMAMT = targetItem.ROOMAMT,
+                                BOARDAMT = targetItem.BOARDAMT,
+                                RMBRDAMT = targetItem.RMBRDAMT,
+                                APPLFEEU = targetItem.APPLFEEU,
+                                APPLFEEG = targetItem.APPLFEEG
+                            };
+                            item.IPEDSIC = new CollegeDataUSYearly_IC[] { obj };
                         }
                         else if (containerId.Equals("IPEDSICAY"))
                         {
-                            item.TUITION1 = targetItem.TUITION1;
-                            item.FEE1 = targetItem.FEE1;
-                            item.HRCHG1 = targetItem.HRCHG1;
-                            item.TUITION2 = targetItem.TUITION2;
-                            item.FEE2 = targetItem.FEE2;
-                            item.HRCHG2 = targetItem.HRCHG2;
-                            item.TUITION3 = targetItem.TUITION3;
-                            item.FEE3 = targetItem.FEE3;
-                            item.HRCHG3 = targetItem.HRCHG3;
-                            item.TUITION5 = targetItem.TUITION5;
-                            item.FEE5 = targetItem.FEE5;
-                            item.HRCHG5 = targetItem.HRCHG5;
-                            item.TUITION6 = targetItem.TUITION6;
-                            item.FEE6 = targetItem.FEE6;
-                            item.HRCHG6 = targetItem.HRCHG6;
-                            item.TUITION7 = targetItem.TUITION7;
-                            item.FEE7 = targetItem.FEE7;
-                            item.HRCHG7 = targetItem.HRCHG7;
-                            item.ISPROF1 = targetItem.ISPROF1;
-                            item.ISPFEE1 = targetItem.ISPFEE1;
-                            item.OSPROF1 = targetItem.OSPROF1;
-                            item.OSPFEE1 = targetItem.OSPFEE1;
-                            item.ISPROF2 = targetItem.ISPROF2;
-                            item.ISPFEE2 = targetItem.ISPFEE2;
-                            item.OSPROF2 = targetItem.OSPROF2;
-                            item.OSPFEE2 = targetItem.OSPFEE2;
-                            item.ISPROF3 = targetItem.ISPROF3;
-                            item.ISPFEE3 = targetItem.ISPFEE3;
-                            item.OSPROF3 = targetItem.OSPROF3;
-                            item.OSPFEE3 = targetItem.OSPFEE3;
-                            item.ISPROF4 = targetItem.ISPROF4;
-                            item.ISPFEE4 = targetItem.ISPFEE4;
-                            item.OSPROF4 = targetItem.OSPROF4;
-                            item.OSPFEE4 = targetItem.OSPFEE4;
-                            item.ISPROF5 = targetItem.ISPROF5;
-                            item.ISPFEE5 = targetItem.ISPFEE5;
-                            item.OSPROF5 = targetItem.OSPROF5;
-                            item.OSPFEE5 = targetItem.OSPFEE5;
-                            item.ISPROF6 = targetItem.ISPROF6;
-                            item.ISPFEE6 = targetItem.ISPFEE6;
-                            item.OSPROF6 = targetItem.OSPROF6;
-                            item.OSPFEE6 = targetItem.OSPFEE6;
-                            item.ISPROF7 = targetItem.ISPROF7;
-                            item.ISPFEE7 = targetItem.ISPFEE7;
-                            item.OSPROF7 = targetItem.OSPROF7;
-                            item.OSPFEE7 = targetItem.OSPFEE7;
-                            item.ISPROF8 = targetItem.ISPROF8;
-                            item.ISPFEE8 = targetItem.ISPFEE8;
-                            item.OSPROF8 = targetItem.OSPROF8;
-                            item.OSPFEE8 = targetItem.OSPFEE8;
-                            item.ISPROF9 = targetItem.ISPROF9;
-                            item.ISPFEE9 = targetItem.ISPFEE9;
-                            item.OSPROF9 = targetItem.OSPROF9;
-                            item.OSPFEE9 = targetItem.OSPFEE9;
-                            item.CHG1AT0 = targetItem.CHG1AT0;
-                            item.CHG1AF0 = targetItem.CHG1AF0;
-                            item.CHG1AY0 = targetItem.CHG1AY0;
-                            item.CHG1AT1 = targetItem.CHG1AT1;
-                            item.CHG1AF1 = targetItem.CHG1AF1;
-                            item.CHG1AY1 = targetItem.CHG1AY1;
-                            item.CHG1AT2 = targetItem.CHG1AT2;
-                            item.CHG1AF2 = targetItem.CHG1AF2;
-                            item.CHG1AY2 = targetItem.CHG1AY2;
-                            item.CHG1AT3 = targetItem.CHG1AT3;
-                            item.CHG1AF3 = targetItem.CHG1AF3;
-                            item.CHG1AY3 = targetItem.CHG1AY3;
-                            item.CHG1TGTD = targetItem.CHG1TGTD;
-                            item.CHG1FGTD = targetItem.CHG1FGTD;
-                            item.CHG2AT0 = targetItem.CHG2AT0;
-                            item.CHG2AF0 = targetItem.CHG2AF0;
-                            item.CHG2AY0 = targetItem.CHG2AY0;
-                            item.CHG2AT1 = targetItem.CHG2AT1;
-                            item.CHG2AF1 = targetItem.CHG2AF1;
-                            item.CHG2AY1 = targetItem.CHG2AY1;
-                            item.CHG2AT2 = targetItem.CHG2AT2;
-                            item.CHG2AF2 = targetItem.CHG2AF2;
-                            item.CHG2AY2 = targetItem.CHG2AY2;
-                            item.CHG2AT3 = targetItem.CHG2AT3;
-                            item.CHG2AF3 = targetItem.CHG2AF3;
-                            item.CHG2AY3 = targetItem.CHG2AY3;
-                            item.CHG2TGTD = targetItem.CHG2TGTD;
-                            item.CHG2FGTD = targetItem.CHG2FGTD;
-                            item.CHG3AT0 = targetItem.CHG3AT0;
-                            item.CHG3AF0 = targetItem.CHG3AF0;
-                            item.CHG3AY0 = targetItem.CHG3AY0;
-                            item.CHG3AT1 = targetItem.CHG3AT1;
-                            item.CHG3AF1 = targetItem.CHG3AF1;
-                            item.CHG3AY1 = targetItem.CHG3AY1;
-                            item.CHG3AT2 = targetItem.CHG3AT2;
-                            item.CHG3AF2 = targetItem.CHG3AF2;
-                            item.CHG3AY2 = targetItem.CHG3AY2;
-                            item.CHG3AT3 = targetItem.CHG3AT3;
-                            item.CHG3AF3 = targetItem.CHG3AF3;
-                            item.CHG3AY3 = targetItem.CHG3AY3;
-                            item.CHG3TGTD = targetItem.CHG3TGTD;
-                            item.CHG3FGTD = targetItem.CHG3FGTD;
-                            item.CHG4AY0 = targetItem.CHG4AY0;
-                            item.CHG4AY1 = targetItem.CHG4AY1;
-                            item.CHG4AY2 = targetItem.CHG4AY2;
-                            item.CHG4AY3 = targetItem.CHG4AY3;
-                            item.CHG5AY0 = targetItem.CHG5AY0;
-                            item.CHG5AY1 = targetItem.CHG5AY1;
-                            item.CHG5AY2 = targetItem.CHG5AY2;
-                            item.CHG5AY3 = targetItem.CHG5AY3;
-                            item.CHG6AY0 = targetItem.CHG6AY0;
-                            item.CHG6AY1 = targetItem.CHG6AY1;
-                            item.CHG6AY2 = targetItem.CHG6AY2;
-                            item.CHG6AY3 = targetItem.CHG6AY3;
-                            item.CHG7AY0 = targetItem.CHG7AY0;
-                            item.CHG7AY1 = targetItem.CHG7AY1;
-                            item.CHG7AY2 = targetItem.CHG7AY2;
-                            item.CHG7AY3 = targetItem.CHG7AY3;
-                            item.CHG8AY0 = targetItem.CHG8AY0;
-                            item.CHG8AY1 = targetItem.CHG8AY1;
-                            item.CHG8AY2 = targetItem.CHG8AY2;
-                            item.CHG8AY3 = targetItem.CHG8AY3;
-                            item.CHG9AY0 = targetItem.CHG9AY0;
-                            item.CHG9AY1 = targetItem.CHG9AY1;
-                            item.CHG9AY2 = targetItem.CHG9AY2;
-                            item.CHG9AY3 = targetItem.CHG9AY3;
+                            CollegeDataUSYearly_ICAY obj = new CollegeDataUSYearly_ICAY
+                            {
+                                Year = 2018,
+                                TUITION1 = targetItem.TUITION1,
+                                FEE1 = targetItem.FEE1,
+                                HRCHG1 = targetItem.HRCHG1,
+                                TUITION2 = targetItem.TUITION2,
+                                FEE2 = targetItem.FEE2,
+                                HRCHG2 = targetItem.HRCHG2,
+                                TUITION3 = targetItem.TUITION3,
+                                FEE3 = targetItem.FEE3,
+                                HRCHG3 = targetItem.HRCHG3,
+                                TUITION5 = targetItem.TUITION5,
+                                FEE5 = targetItem.FEE5,
+                                HRCHG5 = targetItem.HRCHG5,
+                                TUITION6 = targetItem.TUITION6,
+                                FEE6 = targetItem.FEE6,
+                                HRCHG6 = targetItem.HRCHG6,
+                                TUITION7 = targetItem.TUITION7,
+                                FEE7 = targetItem.FEE7,
+                                HRCHG7 = targetItem.HRCHG7,
+                                ISPROF1 = targetItem.ISPROF1,
+                                ISPFEE1 = targetItem.ISPFEE1,
+                                OSPROF1 = targetItem.OSPROF1,
+                                OSPFEE1 = targetItem.OSPFEE1,
+                                ISPROF2 = targetItem.ISPROF2,
+                                ISPFEE2 = targetItem.ISPFEE2,
+                                OSPROF2 = targetItem.OSPROF2,
+                                OSPFEE2 = targetItem.OSPFEE2,
+                                ISPROF3 = targetItem.ISPROF3,
+                                ISPFEE3 = targetItem.ISPFEE3,
+                                OSPROF3 = targetItem.OSPROF3,
+                                OSPFEE3 = targetItem.OSPFEE3,
+                                ISPROF4 = targetItem.ISPROF4,
+                                ISPFEE4 = targetItem.ISPFEE4,
+                                OSPROF4 = targetItem.OSPROF4,
+                                OSPFEE4 = targetItem.OSPFEE4,
+                                ISPROF5 = targetItem.ISPROF5,
+                                ISPFEE5 = targetItem.ISPFEE5,
+                                OSPROF5 = targetItem.OSPROF5,
+                                OSPFEE5 = targetItem.OSPFEE5,
+                                ISPROF6 = targetItem.ISPROF6,
+                                ISPFEE6 = targetItem.ISPFEE6,
+                                OSPROF6 = targetItem.OSPROF6,
+                                OSPFEE6 = targetItem.OSPFEE6,
+                                ISPROF7 = targetItem.ISPROF7,
+                                ISPFEE7 = targetItem.ISPFEE7,
+                                OSPROF7 = targetItem.OSPROF7,
+                                OSPFEE7 = targetItem.OSPFEE7,
+                                ISPROF8 = targetItem.ISPROF8,
+                                ISPFEE8 = targetItem.ISPFEE8,
+                                OSPROF8 = targetItem.OSPROF8,
+                                OSPFEE8 = targetItem.OSPFEE8,
+                                ISPROF9 = targetItem.ISPROF9,
+                                ISPFEE9 = targetItem.ISPFEE9,
+                                OSPROF9 = targetItem.OSPROF9,
+                                OSPFEE9 = targetItem.OSPFEE9,
+                                CHG1AT0 = targetItem.CHG1AT0,
+                                CHG1AF0 = targetItem.CHG1AF0,
+                                CHG1AY0 = targetItem.CHG1AY0,
+                                CHG1AT1 = targetItem.CHG1AT1,
+                                CHG1AF1 = targetItem.CHG1AF1,
+                                CHG1AY1 = targetItem.CHG1AY1,
+                                CHG1AT2 = targetItem.CHG1AT2,
+                                CHG1AF2 = targetItem.CHG1AF2,
+                                CHG1AY2 = targetItem.CHG1AY2,
+                                CHG1AT3 = targetItem.CHG1AT3,
+                                CHG1AF3 = targetItem.CHG1AF3,
+                                CHG1AY3 = targetItem.CHG1AY3,
+                                CHG1TGTD = targetItem.CHG1TGTD,
+                                CHG1FGTD = targetItem.CHG1FGTD,
+                                CHG2AT0 = targetItem.CHG2AT0,
+                                CHG2AF0 = targetItem.CHG2AF0,
+                                CHG2AY0 = targetItem.CHG2AY0,
+                                CHG2AT1 = targetItem.CHG2AT1,
+                                CHG2AF1 = targetItem.CHG2AF1,
+                                CHG2AY1 = targetItem.CHG2AY1,
+                                CHG2AT2 = targetItem.CHG2AT2,
+                                CHG2AF2 = targetItem.CHG2AF2,
+                                CHG2AY2 = targetItem.CHG2AY2,
+                                CHG2AT3 = targetItem.CHG2AT3,
+                                CHG2AF3 = targetItem.CHG2AF3,
+                                CHG2AY3 = targetItem.CHG2AY3,
+                                CHG2TGTD = targetItem.CHG2TGTD,
+                                CHG2FGTD = targetItem.CHG2FGTD,
+                                CHG3AT0 = targetItem.CHG3AT0,
+                                CHG3AF0 = targetItem.CHG3AF0,
+                                CHG3AY0 = targetItem.CHG3AY0,
+                                CHG3AT1 = targetItem.CHG3AT1,
+                                CHG3AF1 = targetItem.CHG3AF1,
+                                CHG3AY1 = targetItem.CHG3AY1,
+                                CHG3AT2 = targetItem.CHG3AT2,
+                                CHG3AF2 = targetItem.CHG3AF2,
+                                CHG3AY2 = targetItem.CHG3AY2,
+                                CHG3AT3 = targetItem.CHG3AT3,
+                                CHG3AF3 = targetItem.CHG3AF3,
+                                CHG3AY3 = targetItem.CHG3AY3,
+                                CHG3TGTD = targetItem.CHG3TGTD,
+                                CHG3FGTD = targetItem.CHG3FGTD,
+                                CHG4AY0 = targetItem.CHG4AY0,
+                                CHG4AY1 = targetItem.CHG4AY1,
+                                CHG4AY2 = targetItem.CHG4AY2,
+                                CHG4AY3 = targetItem.CHG4AY3,
+                                CHG5AY0 = targetItem.CHG5AY0,
+                                CHG5AY1 = targetItem.CHG5AY1,
+                                CHG5AY2 = targetItem.CHG5AY2,
+                                CHG5AY3 = targetItem.CHG5AY3,
+                                CHG6AY0 = targetItem.CHG6AY0,
+                                CHG6AY1 = targetItem.CHG6AY1,
+                                CHG6AY2 = targetItem.CHG6AY2,
+                                CHG6AY3 = targetItem.CHG6AY3,
+                                CHG7AY0 = targetItem.CHG7AY0,
+                                CHG7AY1 = targetItem.CHG7AY1,
+                                CHG7AY2 = targetItem.CHG7AY2,
+                                CHG7AY3 = targetItem.CHG7AY3,
+                                CHG8AY0 = targetItem.CHG8AY0,
+                                CHG8AY1 = targetItem.CHG8AY1,
+                                CHG8AY2 = targetItem.CHG8AY2,
+                                CHG8AY3 = targetItem.CHG8AY3,
+                                CHG9AY0 = targetItem.CHG9AY0,
+                                CHG9AY1 = targetItem.CHG9AY1,
+                                CHG9AY2 = targetItem.CHG9AY2,
+                                CHG9AY3 = targetItem.CHG9AY3
+                            };
+                            item.IPEDSICAY = new CollegeDataUSYearly_ICAY[] { obj };
                         }
                         else if (containerId.Equals("IPEDSSSIS"))
                         {
-                            item.SISTOTL = targetItem.SISTOTL;
-                            item.SISPROF = targetItem.SISPROF;
-                            item.SISASCP = targetItem.SISASCP;
-                            item.SISASTP = targetItem.SISASTP;
-                            item.SISINST = targetItem.SISINST;
-                            item.SISLECT = targetItem.SISLECT;
+                            CollegeDataUSYearly_SSIS obj = new CollegeDataUSYearly_SSIS
+                            {
+                                Year = 2018,
+                                SISTOTL = targetItem.SISTOTL,
+                                SISPROF = targetItem.SISPROF,
+                                SISASCP = targetItem.SISASCP,
+                                SISASTP = targetItem.SISASTP,
+                                SISINST = targetItem.SISINST,
+                                SISLECT = targetItem.SISLECT
+                            };
+                            item.IPEDSSSIS = new CollegeDataUSYearly_SSIS[] { obj };
                         }
                         ItemResponse<CollegeDataUSYearly> result = await mainContainer.UpsertItemAsync(item, new PartitionKey(unitid));
                         Console.WriteLine($"For UNITID {unitid} updated item in database with id: {0} Operation consumed {1} RUs.\n", result.Resource.Id, result.RequestCharge);
@@ -876,7 +925,7 @@ namespace OneStopHelper
                     double? lpcrclt = RetrieveVal(reader.GetValue(12));
                     double? lecrclt = RetrieveVal(reader.GetValue(13));
                     double? ltcrclt = RetrieveVal(reader.GetValue(14));
-                    
+
                     var id = (count - 1).ToString();
                     var idNum = count - 1;
                     var localContainer = GetContainer(containerId);
@@ -916,7 +965,7 @@ namespace OneStopHelper
                 }
             } while (reader.NextResult());
         }
-        
+
         public async Task AddIPEDSYearlyDataforCDEP(string containerId)
         {
             var filePath = $"{rootPath}C2018DEP.xlsx";
@@ -960,7 +1009,7 @@ namespace OneStopHelper
                     var localContainer = GetContainer(containerId);
                     if (idNum < 300000)
                     {
-                        if (idNum%10000 == 0)
+                        if (idNum % 10000 == 0)
                         {
                             Console.WriteLine("Working on line: " + idNum);
                         }
@@ -994,7 +1043,7 @@ namespace OneStopHelper
                             PPMAST = PPMAST,
                             PPMASTDE = PPMASTDE
                         };
-                        
+
                         try
                         {
                             //Console.WriteLine("current item: " + item.UNITID + " with actpct: " + item.ACTPCT);
@@ -1270,7 +1319,7 @@ namespace OneStopHelper
                     double? GBA6RTUN = RetrieveVal(reader.GetValue(28));
                     double? GBA6RTNR = RetrieveVal(reader.GetValue(29));
                     double? GBATRRT = RetrieveVal(reader.GetValue(30));
-                    
+
 
                     var id = (count - 1).ToString();
                     var idNum = count - 1;
@@ -1774,7 +1823,7 @@ namespace OneStopHelper
                     double? SISASTP = RetrieveVal(reader.GetValue(5));
                     double? SISINST = RetrieveVal(reader.GetValue(6));
                     double? SISLECT = RetrieveVal(reader.GetValue(7));
-                    
+
                     var id = (count - 1).ToString();
                     var idNum = count - 1;
                     var localContainer = GetContainer(containerId);
@@ -1819,7 +1868,7 @@ namespace OneStopHelper
         /// <returns></returns>
         public async Task AddScorecardYearlyData()
         {
-            using StreamReader sr = new StreamReader("c:/Users/Administrator/Downloads/Most-Recent-Cohorts-All-Data-Elements.csv");
+            using StreamReader sr = new StreamReader("c:/Users/Administrator/Downloads/CollegeScorecard-data-12022020.csv");
             var num = 0;
             var localContainer = database.GetContainer("CollegeDataUSYearly");
             string currentLine;
@@ -1829,7 +1878,7 @@ namespace OneStopHelper
                 num++;
                 if (num == 1)
                     continue;
-                //Console.WriteLine("Working on line number: " + (num - 1));
+                Console.WriteLine("Working on line number: " + (num - 1));
                 var vals = currentLine.Split(',');
                 var UNITID = vals[0];
                 var ADM_RATE = vals[36];
@@ -1924,108 +1973,114 @@ namespace OneStopHelper
                 var MN_EARN_WNE_P8 = vals[1695];
                 var MD_EARN_WNE_P8 = vals[1696];
 
+                CollegeDataUSYearly_Scorecard obj = new CollegeDataUSYearly_Scorecard
+                {
+                    Year = 2020,
+                    ADM_RATE = ParseDoubleFromString(ADM_RATE),
+                    ADM_RATE_ALL = ParseDoubleFromString(ADM_RATE_ALL),
+                    SATVR25 = ParseDoubleFromString(SATVR25),
+                    SATVR75 = ParseDoubleFromString(SATVR75),
+                    SATMT25 = ParseDoubleFromString(SATMT25),
+                    SATMT75 = ParseDoubleFromString(SATMT75),
+                    SATWR25 = ParseDoubleFromString(SATWR25),
+                    SATWR75 = ParseDoubleFromString(SATWR75),
+                    SATVRMID = ParseDoubleFromString(SATVRMID),
+                    SATMTMID = ParseDoubleFromString(SATMTMID),
+                    SATWRMID = ParseDoubleFromString(SATWRMID),
+                    ACTCM25 = ParseDoubleFromString(ACTCM25),
+                    ACTCM75 = ParseDoubleFromString(ACTCM75),
+                    ACTEN25 = ParseDoubleFromString(ACTEN25),
+                    ACTEN75 = ParseDoubleFromString(ACTEN75),
+                    ACTMT25 = ParseDoubleFromString(ACTMT25),
+                    ACTMT75 = ParseDoubleFromString(ACTMT75),
+                    ACTWR25 = ParseDoubleFromString(ACTWR25),
+                    ACTWR75 = ParseDoubleFromString(ACTWR75),
+                    ACTCMMID = ParseDoubleFromString(ACTCMMID),
+                    ACTENMID = ParseDoubleFromString(ACTENMID),
+                    ACTMTMID = ParseDoubleFromString(ACTMTMID),
+                    ACTWRMID = ParseDoubleFromString(ACTWRMID),
+                    SAT_AVG = ParseDoubleFromString(SAT_AVG),
+                    UGDS = ParseDoubleFromString(UGDS),
+                    UGDS_WHITE = ParseDoubleFromString(UGDS_WHITE),
+                    UGDS_BLACK = ParseDoubleFromString(UGDS_BLACK),
+                    UGDS_HISP = ParseDoubleFromString(UGDS_HISP),
+                    UGDS_ASIAN = ParseDoubleFromString(UGDS_ASIAN),
+                    UGDS_AIAN = ParseDoubleFromString(UGDS_AIAN),
+                    UGDS_NHPI = ParseDoubleFromString(UGDS_NHPI),
+                    UGDS_2MOR = ParseDoubleFromString(UGDS_2MOR),
+                    UGDS_NRA = ParseDoubleFromString(UGDS_NRA),
+                    UGDS_UNKN = ParseDoubleFromString(UGDS_UNKN),
+                    UGDS_WHITENH = ParseDoubleFromString(UGDS_WHITENH),
+                    UGDS_BLACKNH = ParseDoubleFromString(UGDS_BLACKNH),
+                    UGDS_API = ParseDoubleFromString(UGDS_API),
+                    NPT4_PUB = ParseDoubleFromString(NPT4_PUB),
+                    NPT4_PRIV = ParseDoubleFromString(NPT4_PRIV),
+                    NPT41_PUB = ParseDoubleFromString(NPT41_PUB),
+                    NPT42_PUB = ParseDoubleFromString(NPT42_PUB),
+                    NPT43_PUB = ParseDoubleFromString(NPT43_PUB),
+                    NPT44_PUB = ParseDoubleFromString(NPT44_PUB),
+                    NPT45_PUB = ParseDoubleFromString(NPT45_PUB),
+                    NPT41_PRIV = ParseDoubleFromString(NPT41_PRIV),
+                    NPT42_PRIV = ParseDoubleFromString(NPT42_PRIV),
+                    NPT43_PRIV = ParseDoubleFromString(NPT43_PRIV),
+                    NPT44_PRIV = ParseDoubleFromString(NPT44_PRIV),
+                    NPT45_PRIV = ParseDoubleFromString(NPT45_PRIV),
+                    NUM4_PUB = ParseDoubleFromString(NUM4_PUB),
+                    NUM41_PUB = ParseDoubleFromString(NUM41_PUB),
+                    NUM42_PUB = ParseDoubleFromString(NUM42_PUB),
+                    NUM43_PUB = ParseDoubleFromString(NUM43_PUB),
+                    NUM44_PUB = ParseDoubleFromString(NUM44_PUB),
+                    NUM45_PUB = ParseDoubleFromString(NUM45_PUB),
+                    NUM41_PRIV = ParseDoubleFromString(NUM41_PRIV),
+                    NUM42_PRIV = ParseDoubleFromString(NUM42_PRIV),
+                    NUM43_PRIV = ParseDoubleFromString(NUM43_PRIV),
+                    NUM44_PRIV = ParseDoubleFromString(NUM44_PRIV),
+                    NUM45_PRIV = ParseDoubleFromString(NUM45_PRIV),
+                    NUM4_PRIV = ParseDoubleFromString(NUM4_PRIV),
+                    COSTT4_A = ParseDoubleFromString(COSTT4_A),
+                    COSTT4_P = ParseDoubleFromString(COSTT4_P),
+                    TUITIONFEE_IN = ParseDoubleFromString(TUITIONFEE_IN),
+                    TUITIONFEE_OUT = ParseDoubleFromString(TUITIONFEE_OUT),
+                    FEMALE = ParseDoubleFromString(FEMALE),
+                    MARRIED = ParseDoubleFromString(MARRIED),
+                    DEPENDENT = ParseDoubleFromString(DEPENDENT),
+                    VETERAN = ParseDoubleFromString(VETERAN),
+                    FIRST_GEN = ParseDoubleFromString(FIRST_GEN),
+                    FAMINC = ParseDoubleFromString(FAMINC),
+                    MD_FAMINC = ParseDoubleFromString(MD_FAMINC),
+                    MEDIAN_HH_INC = ParseDoubleFromString(MEDIAN_HH_INC),
+                    POVERTY_RATE = ParseDoubleFromString(POVERTY_RATE),
+                    UNEMP_RATE = ParseDoubleFromString(UNEMP_RATE),
+                    GRAD_DEBT_MDN_SUPP = ParseDoubleFromString(GRAD_DEBT_MDN_SUPP),
+                    UGDS_MEN = ParseDoubleFromString(UGDS_MEN),
+                    UGDS_WOMEN = ParseDoubleFromString(UGDS_WOMEN),
+                    GRADS = ParseDoubleFromString(GRADS),
+                    COUNT_NWNE_P10 = ParseDoubleFromString(COUNT_NWNE_P10),
+                    COUNT_WNE_P10 = ParseDoubleFromString(COUNT_WNE_P10),
+                    MN_EARN_WNE_P10 = ParseDoubleFromString(MN_EARN_WNE_P10),
+                    MD_EARN_WNE_P10 = ParseDoubleFromString(MD_EARN_WNE_P10),
+                    COUNT_NWNE_P6 = ParseDoubleFromString(COUNT_NWNE_P6),
+                    COUNT_WNE_P6 = ParseDoubleFromString(COUNT_WNE_P6),
+                    MN_EARN_WNE_P6 = ParseDoubleFromString(MN_EARN_WNE_P6),
+                    MD_EARN_WNE_P6 = ParseDoubleFromString(MD_EARN_WNE_P6),
+                    COUNT_NWNE_P8 = ParseDoubleFromString(COUNT_NWNE_P8),
+                    COUNT_WNE_P8 = ParseDoubleFromString(COUNT_WNE_P8),
+                    MN_EARN_WNE_P8 = ParseDoubleFromString(MN_EARN_WNE_P8),
+                    MD_EARN_WNE_P8 = ParseDoubleFromString(MD_EARN_WNE_P8)
+                };
+                CollegeDataUSYearly_Scorecard[] ScoreCardArr = new CollegeDataUSYearly_Scorecard[] { obj };
+
                 CollegeDataUSYearly item = new CollegeDataUSYearly
                 {
 
                     UNITID = UNITID,
                     Id = (num - 1).ToString(),
-                    year = 2019,
-                    ADM_RATE = ADM_RATE,
-                    ADM_RATE_ALL = ADM_RATE_ALL,
-                    SATVR25 = SATVR25,
-                    SATVR75 = SATVR75,
-                    SATMT25 = SATMT25,
-                    SATMT75 = SATMT75,
-                    SATWR25 = SATWR25,
-                    SATWR75 = SATWR75,
-                    SATVRMID = SATVRMID,
-                    SATMTMID = SATMTMID,
-                    SATWRMID = SATWRMID,
-                    ACTCM25 = ACTCM25,
-                    ACTCM75 = ACTCM75,
-                    ACTEN25 = ACTEN25,
-                    ACTEN75 = ACTEN75,
-                    ACTMT25 = ACTMT25,
-                    ACTMT75 = ACTMT75,
-                    ACTWR25 = ACTWR25,
-                    ACTWR75 = ACTWR75,
-                    ACTCMMID = ACTCMMID,
-                    ACTENMID = ACTENMID,
-                    ACTMTMID = ACTMTMID,
-                    ACTWRMID = ACTWRMID,
-                    SAT_AVG = SAT_AVG,
-                    UGDS = UGDS,
-                    UGDS_WHITE = UGDS_WHITE,
-                    UGDS_BLACK = UGDS_BLACK,
-                    UGDS_HISP = UGDS_HISP,
-                    UGDS_ASIAN = UGDS_ASIAN,
-                    UGDS_AIAN = UGDS_AIAN,
-                    UGDS_NHPI = UGDS_NHPI,
-                    UGDS_2MOR = UGDS_2MOR,
-                    UGDS_NRA = UGDS_NRA,
-                    UGDS_UNKN = UGDS_UNKN,
-                    UGDS_WHITENH = UGDS_WHITENH,
-                    UGDS_BLACKNH = UGDS_BLACKNH,
-                    UGDS_API = UGDS_API,
-                    NPT4_PUB = NPT4_PUB,
-                    NPT4_PRIV = NPT4_PRIV,
-                    NPT41_PUB = NPT41_PUB,
-                    NPT42_PUB = NPT42_PUB,
-                    NPT43_PUB = NPT43_PUB,
-                    NPT44_PUB = NPT44_PUB,
-                    NPT45_PUB = NPT45_PUB,
-                    NPT41_PRIV = NPT41_PRIV,
-                    NPT42_PRIV = NPT42_PRIV,
-                    NPT43_PRIV = NPT43_PRIV,
-                    NPT44_PRIV = NPT44_PRIV,
-                    NPT45_PRIV = NPT45_PRIV,
-                    NUM4_PUB = NUM4_PUB,
-                    NUM41_PUB = NUM41_PUB,
-                    NUM42_PUB = NUM42_PUB,
-                    NUM43_PUB = NUM43_PUB,
-                    NUM44_PUB = NUM44_PUB,
-                    NUM45_PUB = NUM45_PUB,
-                    NUM41_PRIV = NUM41_PRIV,
-                    NUM42_PRIV = NUM42_PRIV,
-                    NUM43_PRIV = NUM43_PRIV,
-                    NUM44_PRIV = NUM44_PRIV,
-                    NUM45_PRIV = NUM45_PRIV,
-                    NUM4_PRIV = NUM4_PRIV,
-                    COSTT4_A = COSTT4_A,
-                    COSTT4_P = COSTT4_P,
-                    TUITIONFEE_IN = TUITIONFEE_IN,
-                    TUITIONFEE_OUT = TUITIONFEE_OUT,
-                    FEMALE = FEMALE,
-                    MARRIED = MARRIED,
-                    DEPENDENT = DEPENDENT,
-                    VETERAN = VETERAN,
-                    FIRST_GEN = FIRST_GEN,
-                    FAMINC = FAMINC,
-                    MD_FAMINC = MD_FAMINC,
-                    MEDIAN_HH_INC = MEDIAN_HH_INC,
-                    POVERTY_RATE = POVERTY_RATE,
-                    UNEMP_RATE = UNEMP_RATE,
-                    GRAD_DEBT_MDN_SUPP = GRAD_DEBT_MDN_SUPP,
-                    UGDS_MEN = UGDS_MEN,
-                    UGDS_WOMEN = UGDS_WOMEN,
-                    GRADS = GRADS,
-                    COUNT_NWNE_P10 = COUNT_NWNE_P10,
-                    COUNT_WNE_P10 = COUNT_WNE_P10,
-                    MN_EARN_WNE_P10 = MN_EARN_WNE_P10,
-                    MD_EARN_WNE_P10 = MD_EARN_WNE_P10,
-                    COUNT_NWNE_P6 = COUNT_NWNE_P6,
-                    COUNT_WNE_P6 = COUNT_WNE_P6,
-                    MN_EARN_WNE_P6 = MN_EARN_WNE_P6,
-                    MD_EARN_WNE_P6 = MD_EARN_WNE_P6,
-                    COUNT_NWNE_P8 = COUNT_NWNE_P8,
-                    COUNT_WNE_P8 = COUNT_WNE_P8,
-                    MN_EARN_WNE_P8 = MN_EARN_WNE_P8,
-                    MD_EARN_WNE_P8 = MD_EARN_WNE_P8
+                    ScoreCard = ScoreCardArr
                 };
 
                 if (num < 30000)
                 {
-                    //Console.WriteLine($"unitid: {UNITID}");
+                    Console.WriteLine($"unitid: {UNITID}");
                     ItemResponse<CollegeDataUSYearly> res = await localContainer.CreateItemAsync(item, new PartitionKey(item.UNITID));
                     Console.WriteLine("Created item in database with id: {0} Operation consumed {1} RUs.\n", res.Resource.Id, res.RequestCharge);
                 }
@@ -2136,7 +2191,7 @@ namespace OneStopHelper
 
         private async Task<T> QueryTableCustomConditionAsync<T>(string containerName, string condition)
         {
-            var sqlQueryText = $"SELECT * FROM c WHERE {condition}" ;
+            var sqlQueryText = $"SELECT * FROM c WHERE {condition}";
             //Console.WriteLine("Running query: {0}\n", sqlQueryText);
             QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
             var localContainer = database.GetContainer(containerName);
@@ -2178,7 +2233,7 @@ namespace OneStopHelper
                 return null;
             }
             CollegeDataUS college = null;
-            while(it.HasMoreResults)
+            while (it.HasMoreResults)
             {
                 var res = await it.ReadNextAsync();
                 if (res.Count == 0)
@@ -2205,7 +2260,7 @@ namespace OneStopHelper
                 ItemResponse<CollegeDataUS> res = await container.CreateItemAsync(college, new PartitionKey(college.UNITID));
                 Console.WriteLine("Created item in database with id: {0} Operation consumed {1} RUs.\n", res.Resource.Id, res.RequestCharge);
             }
-            catch (CosmosException ex) 
+            catch (CosmosException ex)
             {
                 Console.WriteLine(ex.Message);
             }
@@ -2221,5 +2276,26 @@ namespace OneStopHelper
             return result;
         }
 
+        private double? ParseDoubleFromString(string val)
+        {
+            double? result = null;
+            if (val == null)
+                result = null;
+            else
+            {
+                if (val == "NULL" || val == "PrivacySuppressed")
+                    result = null;
+                else
+                    try
+                    {
+                        result = double.Parse(val);
+                    } catch(FormatException e)
+                    {
+                        Console.WriteLine("Now input is: " + val);
+                        Console.WriteLine(e);
+                    }
+            }
+            return result;
+        }
     }
 }
