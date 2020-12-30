@@ -21,6 +21,7 @@ namespace OneStopHelper.Model
         public CollegeDataUSYearly_SSIS[] IPEDSSSIS { get; set; }
         public CommonDatasetModel[] CommonData { get; set; }
         public CollegeDatasetModel[] CollegeData { get; set; }
+        public USNewsRankingInYearly[] Rank { get; set; }
 
     }
 }

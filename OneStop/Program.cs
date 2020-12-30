@@ -65,7 +65,8 @@ namespace OneStopHelper
                 //await p.UpdateCommonDataset(commonDatasetCollegeFilePath);
                 //await p.UpdateCollegeDataset(collegeDatasetCollegeFilePath);
                 //await p.UpdateYearlDataWithCommonDataset();
-                await p.UpdateYearlDataWithCollegeDataset();
+                //await p.UpdateYearlDataWithCollegeDataset();
+                await p.UpdateYearlDataWithUSNewsRanking();
                 //p.ValidateCommonDatasetFile();
             }
             catch (CosmosException de)
@@ -529,6 +530,73 @@ namespace OneStopHelper
                         dataItem.CollegeData = new CollegeDatasetModel[] { item };
                         ItemResponse<CollegeDataUSYearly> outcome = await targetContainer.UpsertItemAsync(dataItem, new PartitionKey(dataItem.UNITID));
                         Console.WriteLine($"For UNITID {dataItem.UNITID} updated item in database with id: {0} Operation consumed {1} RUs.\n", outcome.Resource.Id, outcome.RequestCharge);
+                    }
+                }
+            }
+        }
+        public async Task UpdateYearlDataWithUSNewsRanking()
+        {
+            var targetContainer = database.GetContainer("CollegeDataUSYearly");
+            var srcContainer = database.GetContainer("USNewsRanking");
+            // iterate each college in USNewsRanking and update CollegeDataUSYearly accordingly
+            var sqlQueryText = "SELECT * FROM c";
+            QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
+            var it = srcContainer.GetItemQueryIterator<USNewsRanking>(queryDefinition);
+            while (it.HasMoreResults)
+            {
+                var res = await it.ReadNextAsync();
+                foreach (var item in res)
+                {
+                    var year = item.year;
+                    Console.WriteLine($"Found this year {year}");
+                    var universities = item.Universities;
+                    foreach(var university in universities)
+                    {
+                        var UNITID = university.UNITID;
+                        Console.WriteLine($"Found a college: {university.INSTNM} with " + UNITID);
+                        USNewsRankingInYearly rank = new USNewsRankingInYearly
+                        {
+                            Year = int.Parse(year),
+                            Category = "Public University",
+                            Rank = university.Rank
+                        };
+                        var filterQueryText = $"SELECT * FROM c where c.UNITID ='{UNITID}'";
+                        QueryDefinition innerQueryDef = new QueryDefinition(filterQueryText);
+                        var innerIt = targetContainer.GetItemQueryIterator<CollegeDataUSYearly>(innerQueryDef);
+                        while (innerIt.HasMoreResults)
+                        {
+                            var result = await innerIt.ReadNextAsync();
+                            CollegeDataUSYearly dataItem = result.First();
+                            Console.WriteLine($"Found corresponding college {dataItem.UNITID} in yearly data!");
+                            dataItem.Rank = new USNewsRankingInYearly[] { rank };
+                            ItemResponse<CollegeDataUSYearly> outcome = await targetContainer.UpsertItemAsync(dataItem, new PartitionKey(dataItem.UNITID));
+                            Console.WriteLine($"For UNITID {dataItem.UNITID} updated item in database with id: {0} Operation consumed {1} RUs.\n", outcome.Resource.Id, outcome.RequestCharge);
+                        }
+                    }
+
+                    var colleges = item.LibertyColleges;
+                    foreach (var college in colleges)
+                    {
+                        var UNITID = college.UNITID;
+                        Console.WriteLine($"Found a liberty arts college: {college.INSTNM} with " + UNITID);
+                        USNewsRankingInYearly rank = new USNewsRankingInYearly
+                        {
+                            Year = int.Parse(year),
+                            Category = "Liberty Arts College",
+                            Rank = college.Rank
+                        };
+                        var filterQueryText = $"SELECT * FROM c where c.UNITID ='{UNITID}'";
+                        QueryDefinition innerQueryDef = new QueryDefinition(filterQueryText);
+                        var innerIt = targetContainer.GetItemQueryIterator<CollegeDataUSYearly>(innerQueryDef);
+                        while (innerIt.HasMoreResults)
+                        {
+                            var result = await innerIt.ReadNextAsync();
+                            CollegeDataUSYearly dataItem = result.First();
+                            Console.WriteLine($"Found corresponding college {dataItem.UNITID} in yearly data!");
+                            dataItem.Rank = new USNewsRankingInYearly[] { rank };
+                            ItemResponse<CollegeDataUSYearly> outcome = await targetContainer.UpsertItemAsync(dataItem, new PartitionKey(dataItem.UNITID));
+                            Console.WriteLine($"For UNITID {dataItem.UNITID} updated item in database with id: {0} Operation consumed {1} RUs.\n", outcome.Resource.Id, outcome.RequestCharge);
+                        }
                     }
                 }
             }
