@@ -2,7 +2,7 @@
 
 namespace OneStopHelper.Model
 {
-    public class CommonDatasetModel
+    public class CollegeDatasetModel
     {
         [JsonProperty(PropertyName = "id")]
         public string Id { get; set; }
@@ -20,11 +20,11 @@ namespace OneStopHelper.Model
         [JsonProperty(PropertyName = "admReq")]
         public dynamic AdmissionReq { get; set; }
 
-        [JsonProperty(PropertyName = "admDecision")]
-        public dynamic AdmissionDecision { get; set; }
-
         [JsonProperty(PropertyName = "satAct")]
         public dynamic SatAct { get; set; }
+
+        [JsonProperty(PropertyName = "admDecision")]
+        public dynamic AdmissionDecision { get; set; }
 
         [JsonProperty(PropertyName = "classRankPercent")]
         public dynamic ClassRank { get; set; }
@@ -34,8 +34,6 @@ namespace OneStopHelper.Model
 
         [JsonProperty(PropertyName = "apply")]
         public dynamic Apply { get; set; }
-
-        [JsonProperty(PropertyName = "transfer")]
-        public dynamic Transfer { get; set; }
+                
     }
 }

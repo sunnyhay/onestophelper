@@ -33,6 +33,8 @@ namespace OneStopHelper
         private readonly string rootPath = "c:/Users/Administrator/Documents/";
         private static readonly string commonDatasetFilePath = "c:/Users/Administrator/Documents/CommonDataset-University";
         private static readonly string commonDatasetCollegeFilePath = "c:/Users/Administrator/Documents/CommonDataset-College";
+        private static readonly string collegeDatasetFilePath = "c:/Users/Administrator/Documents/CollegeData-University";
+        private static readonly string collegeDatasetCollegeFilePath = "c:/Users/Administrator/Documents/CollegeData-College";
         private readonly int CURRENTYEAR = 2019;
 
         public static async Task Main(string[] args)
@@ -60,8 +62,10 @@ namespace OneStopHelper
                 //await p.AddIPEDSYearlyDataforSSIS("IPEDSSSIS");
                 //await p.UpdateYearlyData("IPEDSSSIS");
                 //await p.ValidateRankingData();
-                await p.UpdateCommonDataset(commonDatasetCollegeFilePath);
+                //await p.UpdateCommonDataset(commonDatasetCollegeFilePath);
+                //await p.UpdateCollegeDataset(collegeDatasetCollegeFilePath);
                 //await p.UpdateYearlDataWithCommonDataset();
+                await p.UpdateYearlDataWithCollegeDataset();
                 //p.ValidateCommonDatasetFile();
             }
             catch (CosmosException de)
@@ -396,10 +400,13 @@ namespace OneStopHelper
                 {
                     Id = json["UNITID"].ToString(),
                     UNITID = json["UNITID"].ToString(),
-                    year = int.Parse(json["year"].ToString()),
+                    Year = int.Parse(json["year"].ToString()),
+                    Name = json["name"].ToString(),
                     Waiting = json["waiting"],
-                    AdmDecision = json["admDecision"],
+                    AdmissionReq = json["admReq"],
+                    AdmissionDecision = json["admDecision"],
                     SatAct = json["satAct"],
+                    ClassRank = json["classRankPercent"],
                     Gpa = json["gpa"],
                     Apply = json["apply"],
                     Transfer = json["transfer"]
@@ -415,6 +422,52 @@ namespace OneStopHelper
                 {
                     Console.WriteLine("Not found the college " + json["name"]);
                     ItemResponse<CommonDatasetModel> result = await container.CreateItemAsync(model, new PartitionKey(model.UNITID));
+                    Console.WriteLine("Created model in database with id: {0} Operation consumed {1} RUs.\n", result.Resource.Id, result.RequestCharge);
+                }
+
+            }
+            Console.WriteLine($"Updated {count} number of colleges for file {inputFile}");
+        }
+        public async Task UpdateCollegeDataset(string inputFile)
+        {
+            var container = database.GetContainer("CollegeDataset");
+            int count = 0;
+            foreach (string filename in Directory.EnumerateFiles(inputFile, "*.json"))
+            {
+                count++;
+                //string contents = File.ReadAllText(file);
+                Console.WriteLine("File name: " + filename);
+                //Console.WriteLine(contents);
+                using StreamReader file = File.OpenText(filename);
+                using JsonTextReader reader = new JsonTextReader(file);
+                JObject json = (JObject)JToken.ReadFrom(reader);
+                //Console.WriteLine(json["waiting"]["hasWaiting"]);
+                Console.WriteLine("Current college is " + json["year"].ToString());
+                CollegeDatasetModel model = new CollegeDatasetModel
+                {
+                    Id = json["UNITID"].ToString(),
+                    UNITID = json["UNITID"].ToString(),
+                    Year = int.Parse(json["year"].ToString()),
+                    Name = json["name"].ToString(),
+                    Waiting = json["waiting"],
+                    AdmissionReq = json["admReq"],
+                    AdmissionDecision = json["admDecision"],
+                    SatAct = json["satAct"],
+                    ClassRank = json["classRankPercent"],
+                    Gpa = json["gpa"],
+                    Apply = json["apply"]
+                };
+                ItemResponse<CollegeDatasetModel> res = null;
+                try
+                {
+                    res = await container.ReadItemAsync<CollegeDatasetModel>(model.Id, new PartitionKey(model.UNITID));
+                    Console.WriteLine("Found the model with UNITID: " + res.Resource.UNITID);
+                }
+                catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound) { }
+                if (res == null)
+                {
+                    Console.WriteLine("Not found the college " + json["name"]);
+                    ItemResponse<CollegeDatasetModel> result = await container.CreateItemAsync(model, new PartitionKey(model.UNITID));
                     Console.WriteLine("Created model in database with id: {0} Operation consumed {1} RUs.\n", result.Resource.Id, result.RequestCharge);
                 }
 
@@ -445,6 +498,35 @@ namespace OneStopHelper
                         CollegeDataUSYearly dataItem = result.First();
                         Console.WriteLine($"Found corresponding college {dataItem.UNITID} in yearly data!");
                         dataItem.CommonData = new CommonDatasetModel[] { item };
+                        ItemResponse<CollegeDataUSYearly> outcome = await targetContainer.UpsertItemAsync(dataItem, new PartitionKey(dataItem.UNITID));
+                        Console.WriteLine($"For UNITID {dataItem.UNITID} updated item in database with id: {0} Operation consumed {1} RUs.\n", outcome.Resource.Id, outcome.RequestCharge);
+                    }
+                }
+            }
+        }
+        public async Task UpdateYearlDataWithCollegeDataset()
+        {
+            var targetContainer = database.GetContainer("CollegeDataUSYearly");
+            var srcContainer = database.GetContainer("CollegeDataset");
+            // iterate each model in CollegeDataset and update CollegeDataUSYearly accordingly
+            var sqlQueryText = "SELECT * FROM c";
+            QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
+            var it = srcContainer.GetItemQueryIterator<CollegeDatasetModel>(queryDefinition);
+            while (it.HasMoreResults)
+            {
+                var res = await it.ReadNextAsync();
+                foreach (var item in res)
+                {
+                    Console.WriteLine($"Found this UNITID {item.UNITID}");
+                    var filterQueryText = $"SELECT * FROM c where c.UNITID ='{item.UNITID}'";
+                    QueryDefinition innerQueryDef = new QueryDefinition(filterQueryText);
+                    var innerIt = targetContainer.GetItemQueryIterator<CollegeDataUSYearly>(innerQueryDef);
+                    while (innerIt.HasMoreResults)
+                    {
+                        var result = await innerIt.ReadNextAsync();
+                        CollegeDataUSYearly dataItem = result.First();
+                        Console.WriteLine($"Found corresponding college {dataItem.UNITID} in yearly data!");
+                        dataItem.CollegeData = new CollegeDatasetModel[] { item };
                         ItemResponse<CollegeDataUSYearly> outcome = await targetContainer.UpsertItemAsync(dataItem, new PartitionKey(dataItem.UNITID));
                         Console.WriteLine($"For UNITID {dataItem.UNITID} updated item in database with id: {0} Operation consumed {1} RUs.\n", outcome.Resource.Id, outcome.RequestCharge);
                     }

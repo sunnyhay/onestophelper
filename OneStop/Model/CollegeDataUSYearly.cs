@@ -20,6 +20,7 @@ namespace OneStopHelper.Model
         public CollegeDataUSYearly_ICAY[] IPEDSICAY { get; set; }
         public CollegeDataUSYearly_SSIS[] IPEDSSSIS { get; set; }
         public CommonDatasetModel[] CommonData { get; set; }
+        public CollegeDatasetModel[] CollegeData { get; set; }
 
     }
 }
