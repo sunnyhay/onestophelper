@@ -66,7 +66,8 @@ namespace OneStopHelper
                 //await p.UpdateCollegeDataset(collegeDatasetCollegeFilePath);
                 //await p.UpdateYearlDataWithCommonDataset();
                 //await p.UpdateYearlDataWithCollegeDataset();
-                await p.UpdateYearlDataWithUSNewsRanking();
+                //await p.UpdateYearlDataWithUSNewsRanking();
+                await p.UpdateYearlDataWithCollegeInfo();
                 //p.ValidateCommonDatasetFile();
             }
             catch (CosmosException de)
@@ -598,6 +599,56 @@ namespace OneStopHelper
                             Console.WriteLine($"For UNITID {dataItem.UNITID} updated item in database with id: {0} Operation consumed {1} RUs.\n", outcome.Resource.Id, outcome.RequestCharge);
                         }
                     }
+                }
+            }
+        }
+        public async Task UpdateYearlDataWithCollegeInfo()
+        {
+            var targetContainer = database.GetContainer("CollegeDataUSYearly");
+            var srcContainer = database.GetContainer("CollegeDataUS");
+            // iterate each college in CollegeDataUS and update CollegeDataUSYearly accordingly
+            var sqlQueryText = "SELECT * FROM c";
+            QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
+            var it = srcContainer.GetItemQueryIterator<CollegeDataUS>(queryDefinition);
+            while (it.HasMoreResults)
+            {
+                var res = await it.ReadNextAsync();
+                foreach (var item in res)
+                {
+                    var collegeName = item.INSTNM;
+                    var UNITID = item.UNITID;
+                    
+                    Console.WriteLine($"Found this name {collegeName} with UNITID: {UNITID}");
+                    var filterQueryText = "SELECT * FROM c where c.UNITID = @UNITID";
+                    QueryDefinition innerQueryDef = new QueryDefinition(filterQueryText)
+                        .WithParameter("@UNITID", UNITID);
+                    var innerIt = targetContainer.GetItemQueryIterator<CollegeDataUSYearly>(innerQueryDef);
+                    while (innerIt.HasMoreResults)
+                    {
+                        var result = await innerIt.ReadNextAsync();
+                        CollegeDataUSYearly dataItem = result.First();
+                        Console.WriteLine($"Found corresponding college {dataItem.UNITID} in yearly data!");
+                        dataItem.INSTNM = collegeName;
+                        dataItem.CITY = item.CITY;
+                        dataItem.STABBR = item.STABBR;
+                        dataItem.ZIP = item.ZIP;
+                        dataItem.ST_FIPS = item.ST_FIPS;
+                        dataItem.REGION = item.REGION;
+                        dataItem.LOCALE = item.LOCALE;
+                        dataItem.LATITUDE = item.LATITUDE;
+                        dataItem.LONGITUDE = item.LONGITUDE;
+                        dataItem.INSTURL = item.INSTURL;
+                        dataItem.NPCURL = item.NPCURL;
+                        dataItem.CONTROL = item.CONTROL;
+                        dataItem.ADMINURL = item.ADMINURL;
+                        dataItem.FAIDURL = item.FAIDURL;
+                        dataItem.APPLURL = item.APPLURL;
+                        dataItem.COUNTYNM = item.COUNTYNM;
+                        dataItem.HIGHEST_DEGREE = item.HIGHEST_DEGREE;
+                        ItemResponse<CollegeDataUSYearly> outcome = await targetContainer.UpsertItemAsync(dataItem, new PartitionKey(dataItem.UNITID));
+                        Console.WriteLine($"For UNITID {dataItem.UNITID} updated item in database with id: {0} Operation consumed {1} RUs.\n", outcome.Resource.Id, outcome.RequestCharge);
+                    }
+
                 }
             }
         }
