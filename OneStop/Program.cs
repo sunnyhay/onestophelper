@@ -67,8 +67,11 @@ namespace OneStopHelper
                 //await p.UpdateYearlDataWithCommonDataset();
                 //await p.UpdateYearlDataWithCollegeDataset();
                 //await p.UpdateYearlDataWithUSNewsRanking();
-                await p.UpdateYearlDataWithCollegeInfo();
+                //await p.UpdateYearlDataWithCollegeInfo();
                 //p.ValidateCommonDatasetFile();
+                //p.Estimate();
+                //await p.AddEstimateDataset();
+                //await p.SplitColleges();
             }
             catch (CosmosException de)
             {
@@ -86,6 +89,194 @@ namespace OneStopHelper
             }
         }
 
+        // try estimate of GPA, ranking and SAT/ACT
+        public void Estimate()
+        {
+            double?[] input = new double?[]
+            {
+                58.18, 30.86, 5.93, 3.3, 1.43, 0.22, 0, 0.08, 0
+            };
+            double?[] input1 = new double?[]
+            {
+                36.9,20.2,18.6,10.3,8.1,5.6,0.3,0,0
+            };
+            double?[] input2 = new double?[]
+            {
+                null,23,16,13,15,25,8,0,0
+            };
+            double?[] input3 = new double?[]
+            {
+                70.55, 22.26, 4.94, 1.67, 0.42, 0.08, 0.08, 0, 0
+            };
+            
+
+            double?[] output = Utils.EstimateFromGpa(input3);
+            for (int i = 0; i < output.Length; i++)
+                Console.WriteLine(output[i]);
+        }
+        // split the entire data into two parts: standard university/college and communit college
+        // based on this condition:
+        // 1. the college's highest degree is under bachelor, i.e. Associate or None
+        // 2. name contains "Community College"
+        public async Task SplitColleges()
+        {
+            var targetContainer = database.GetContainer("OtherColleges");
+            var srcContainer = database.GetContainer("CollegeDataUSYearly");
+            // iterate each college in CollegeDataUSYearly and move community college to OtherColleges
+            var sqlQueryText = "SELECT * FROM c";
+            QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
+            var it = srcContainer.GetItemQueryIterator<CollegeDataUSYearly>(queryDefinition);
+            int count = 0;
+            while (it.HasMoreResults)
+            {
+                var res = await it.ReadNextAsync();
+                foreach (var item in res)
+                {
+                    var unitid = item.UNITID;
+                    var name = item.INSTNM;
+                    var highestDegree = item.HIGHEST_DEGREE;
+                    
+                    try
+                    {
+                        if (name.Contains("Community College") || highestDegree == "Associate" || highestDegree == "None")
+                        {
+                            //ItemResponse<CollegeDataUSYearly> res1 = await targetContainer.CreateItemAsync(item, new PartitionKey(unitid));
+                            //Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
+                            ItemResponse<CollegeDataUSYearly> res2 = await srcContainer.DeleteItemAsync<CollegeDataUSYearly>(item.Id, new PartitionKey(unitid));
+                            Console.WriteLine($"Removed {unitid}... from yearly data!");
+                            //Console.WriteLine("Deleted entry in database with id: {0} Operation consumed {1} RUs.\n", res2.Resource.Id, res2.RequestCharge);
+                            count++;
+                        }
+                    }
+                    catch (CosmosException ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+
+                }
+                
+            }
+            Console.WriteLine($"Totally {count} colleges have been moved!");
+        }
+
+        public async Task AddEstimateDataset()
+        {
+            var targetContainer = database.GetContainer("EstimateData");
+            var srcContainer = database.GetContainer("CollegeDataUSYearly");
+            // iterate each college in CollegeDataUSYearly and add a new EstimateData entry accordingly
+            var sqlQueryText = "SELECT * FROM c";
+            QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
+            var it = srcContainer.GetItemQueryIterator<CollegeDataUSYearly>(queryDefinition);
+            while (it.HasMoreResults)
+            {
+                var res = await it.ReadNextAsync();
+                foreach (var item in res)
+                {
+                    var unitid = item.UNITID;
+                    Console.WriteLine($"Found this UNITID {unitid}");
+
+                    EstimateData entry = new EstimateData
+                    {
+                        Id = unitid,
+                        UNITID = unitid,
+                        INSTNM = item.INSTNM,
+                        SatReading = new double?[]
+                        {
+                                item.ScoreCard[0].SATVR75,
+                                item.ScoreCard[0].SATVR25
+                        },
+                        SatMath = new double?[]
+                        {
+                                item.ScoreCard[0].SATMT75,
+                                item.ScoreCard[0].SATMT25
+                        },
+                        SatWriting = new double?[]
+                        {
+                                item.ScoreCard[0].SATWR75,
+                                item.ScoreCard[0].SATWR25
+                        },
+                        SatReadingMid = item.ScoreCard[0].SATVRMID,
+                        SatMathMid = item.ScoreCard[0].SATMTMID,
+                        SatWritingMid = item.ScoreCard[0].SATWRMID,
+                        SatAvg = item.ScoreCard[0].SAT_AVG,
+                        ActCumulative = new double?[]
+                        {
+                                item.ScoreCard[0].ACTCM75,
+                                item.ScoreCard[0].ACTCM25
+                        },
+                        ActEnglish = new double?[]
+                        {
+                                item.ScoreCard[0].ACTEN75,
+                                item.ScoreCard[0].ACTEN25
+                        },
+                        ActMath = new double?[]
+                        {
+                                item.ScoreCard[0].ACTMT75,
+                                item.ScoreCard[0].ACTMT25
+                        },
+                        ActWriting = new double?[]
+                        {
+                                item.ScoreCard[0].ACTWR75,
+                                item.ScoreCard[0].ACTWR25
+                        },
+                        ActCumulativeMid = item.ScoreCard[0].ACTCMMID,
+                        ActEnglishMid = item.ScoreCard[0].ACTENMID,
+                        ActMathMid = item.ScoreCard[0].ACTMTMID,
+                        ActWritingMid = item.ScoreCard[0].ACTWRMID
+                    };
+                    if (item.CommonData != null
+                        && item.CommonData[0] != null
+                        && item.CommonData[0].Gpa != null
+                        && item.CommonData[0].Gpa["p375"] != null
+                        && item.CommonData[0].Gpa["p35"] != null)
+                    {
+                        var gpa = item.CommonData[0].Gpa;
+                        var input = new double?[] {
+                                gpa["p4"], gpa["p375"], gpa["p35"],gpa["p325"],gpa["p3"],
+                                gpa["p25"],gpa["p2"],gpa["p1"],gpa["pBelow1"],
+                            };
+                        var output = Utils.EstimateFromGpa(input);
+                        Console.WriteLine(output[0]);
+                        entry.GpaInterval = output;
+                        entry.GpaAvg = gpa["avg"];
+                    }
+
+                    if (item.CollegeData != null
+                        && item.CollegeData[0] != null
+                        && item.CollegeData[0].Gpa != null
+                        && item.CollegeData[0].Gpa["p375"] != null
+                        && item.CollegeData[0].Gpa["p35"] != null)
+                    {
+                        var gpa = item.CollegeData[0].Gpa;
+                        var input = new double?[] {
+                                gpa["p4"], gpa["p375"], gpa["p35"],gpa["p325"],gpa["p3"],
+                                gpa["p25"],gpa["p2"],gpa["p1"],gpa["pBelow1"],
+                            };
+                        var output = Utils.EstimateFromGpa(input);
+                        Console.WriteLine(output[0]);
+                        entry.GpaInterval = output;
+                        entry.GpaAvg = gpa["avg"];
+                    }
+
+                    try
+                    {
+                        ItemResponse<EstimateData> res1 = await targetContainer.CreateItemAsync(entry, new PartitionKey(unitid));
+                        Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
+                    }
+                    catch (CosmosException ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                    //if (unitid == "104717")
+                    //{
+                        
+
+                    //}
+
+                }
+            }
+        }
+        
         /// <summary>
         /// Add the basic college data without yearly info from College ScoreCard dataset
         /// </summary>
@@ -2294,7 +2485,7 @@ namespace OneStopHelper
             cosmosClient = new CosmosClient(EndpointUri, PrimaryKey);
             GetDatabase();
             //await CreateDatabaseAsync();
-            await CreateContainerAsync();
+            //await CreateContainerAsync();
         }
         // -----------------------------------------------------------------
         // Below are the helper methods
