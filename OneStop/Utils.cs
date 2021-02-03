@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -12,7 +13,7 @@ namespace OneStopHelper
          * neutral or not recommend, like [3.5, 3.25, 3, 3]
          * the first and last element in output array are never null.
          */
-        public static double?[] EstimateFromGpa(double?[] input)
+        public static JArray EstimateFromGpa(double?[] input)
         {
             double[] arr = new double[]
             {
@@ -50,7 +51,14 @@ namespace OneStopHelper
                 nr = r;
             else
                 nr = hr;
-            return new double?[] { hr, r, n, nr };
+            var result = new JArray();
+            //arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTWR75)));
+            //arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTWR25)));
+            result.Add(hr);
+            result.Add(r);
+            result.Add(n);
+            result.Add(nr);
+            return result;
         }
         
     }

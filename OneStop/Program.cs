@@ -70,7 +70,7 @@ namespace OneStopHelper
                 //await p.UpdateYearlDataWithCollegeInfo();
                 //p.ValidateCommonDatasetFile();
                 //p.Estimate();
-                //await p.AddEstimateDataset();
+                await p.AddMatchDataset();
                 //await p.SplitColleges();
             }
             catch (CosmosException de)
@@ -110,19 +110,25 @@ namespace OneStopHelper
             };
             
 
-            double?[] output = Utils.EstimateFromGpa(input3);
-            for (int i = 0; i < output.Length; i++)
-                Console.WriteLine(output[i]);
+            var output = Utils.EstimateFromGpa(input3);
+            foreach(var item in output.Children())
+            {
+                Console.WriteLine(item.ToString());
+            }
         }
         // split the entire data into two parts: standard university/college and communit college
         // based on this condition:
         // 1. the college's highest degree is under bachelor, i.e. Associate or None
         // 2. name contains "Community College"
+
+        // then continue to split another round of colleges by
+        // 3. no common dataset or college data and sat/act are all none
         public async Task SplitColleges()
         {
-            var targetContainer = database.GetContainer("OtherColleges");
+            var targetContainer = database.GetContainer("SecondaryColleges");
             var srcContainer = database.GetContainer("CollegeDataUSYearly");
             // iterate each college in CollegeDataUSYearly and move community college to OtherColleges
+            // iterate again to move all other colleges to SecondaryColleges
             var sqlQueryText = "SELECT * FROM c";
             QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
             var it = srcContainer.GetItemQueryIterator<CollegeDataUSYearly>(queryDefinition);
@@ -134,17 +140,59 @@ namespace OneStopHelper
                 {
                     var unitid = item.UNITID;
                     var name = item.INSTNM;
-                    var highestDegree = item.HIGHEST_DEGREE;
-                    
+                    var commondataset = item.CommonData;
+                    var collegedata = item.CollegeData;
+
+                    var satvr25 = item.ScoreCard[0].SATVR25;
+                    var satvr75 = item.ScoreCard[0].SATVR75;
+                    var satmt25 = item.ScoreCard[0].SATMT25;
+                    var satmt75 = item.ScoreCard[0].SATMT75;
+                    var satwr25 = item.ScoreCard[0].SATWR25;
+                    var satwr75 = item.ScoreCard[0].SATWR75;
+                    var satvrmid = item.ScoreCard[0].SATVRMID;
+                    var satmtmid = item.ScoreCard[0].SATMTMID;
+                    var satwrmid = item.ScoreCard[0].SATWRMID;
+                    var actcm25 = item.ScoreCard[0].ACTCM25;
+                    var actcm75 = item.ScoreCard[0].ACTCM75;
+                    var acten25 = item.ScoreCard[0].ACTEN25;
+                    var acten75 = item.ScoreCard[0].ACTEN75;
+                    var actmt25 = item.ScoreCard[0].ACTMT25;
+                    var actmt75 = item.ScoreCard[0].ACTMT75;
+                    var actwr25 = item.ScoreCard[0].ACTWR25;
+                    var actwr75 = item.ScoreCard[0].ACTWR75;
+                    var actcmmid = item.ScoreCard[0].ACTCMMID;
+                    var actenmid = item.ScoreCard[0].ACTENMID;
+                    var actmtmid = item.ScoreCard[0].ACTMTMID;
+                    var actwrmid = item.ScoreCard[0].ACTWRMID;
+                    var satavg = item.ScoreCard[0].SAT_AVG;
+
                     try
                     {
-                        if (name.Contains("Community College") || highestDegree == "Associate" || highestDegree == "None")
+                        //if (name.Contains("Community College") || highestDegree == "Associate" || highestDegree == "None")
+                        //{
+                        //    //ItemResponse<CollegeDataUSYearly> res1 = await targetContainer.CreateItemAsync(item, new PartitionKey(unitid));
+                        //    //Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
+                        //    //ItemResponse<CollegeDataUSYearly> res2 = await srcContainer.DeleteItemAsync<CollegeDataUSYearly>(item.Id, new PartitionKey(unitid));
+                        //    //Console.WriteLine($"Removed {unitid}... from yearly data!");
+                        //    //Console.WriteLine("Deleted entry in database with id: {0} Operation consumed {1} RUs.\n", res2.Resource.Id, res2.RequestCharge);
+                        //    count++;
+                        //}
+                        if (commondataset == null && collegedata == null &&
+                            satvr25 == null && satvr75 == null && satvrmid == null &&
+                            satmt25 == null && satmt75 == null && satmtmid == null &&
+                            satwr25 == null && satwr75 == null && satwrmid == null &&
+                            actcm25 == null && actcm75 == null && actcmmid == null &&
+                            acten25 == null && acten75 == null && actenmid == null &&
+                            actmt25 == null && actmt75 == null && actmtmid == null &&
+                            actwr25 == null && actwr75 == null && actwrmid == null &&
+                            satavg == null
+                            )
                         {
+                            Console.WriteLine($"This college belongs to secondary part: {name}");
                             //ItemResponse<CollegeDataUSYearly> res1 = await targetContainer.CreateItemAsync(item, new PartitionKey(unitid));
                             //Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
                             ItemResponse<CollegeDataUSYearly> res2 = await srcContainer.DeleteItemAsync<CollegeDataUSYearly>(item.Id, new PartitionKey(unitid));
                             Console.WriteLine($"Removed {unitid}... from yearly data!");
-                            //Console.WriteLine("Deleted entry in database with id: {0} Operation consumed {1} RUs.\n", res2.Resource.Id, res2.RequestCharge);
                             count++;
                         }
                     }
@@ -159,11 +207,11 @@ namespace OneStopHelper
             Console.WriteLine($"Totally {count} colleges have been moved!");
         }
 
-        public async Task AddEstimateDataset()
+        public async Task AddMatchDataset()
         {
-            var targetContainer = database.GetContainer("EstimateData");
+            var targetContainer = database.GetContainer("MatchData");
             var srcContainer = database.GetContainer("CollegeDataUSYearly");
-            // iterate each college in CollegeDataUSYearly and add a new EstimateData entry accordingly
+            // iterate each college in CollegeDataUSYearly and add a new MatchData entry accordingly
             var sqlQueryText = "SELECT * FROM c";
             QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
             var it = srcContainer.GetItemQueryIterator<CollegeDataUSYearly>(queryDefinition);
@@ -172,73 +220,153 @@ namespace OneStopHelper
                 var res = await it.ReadNextAsync();
                 foreach (var item in res)
                 {
+
                     var unitid = item.UNITID;
                     Console.WriteLine($"Found this UNITID {unitid}");
 
-                    EstimateData entry = new EstimateData
+                    MatchData entry = new MatchData
                     {
                         Id = unitid,
                         UNITID = unitid,
-                        INSTNM = item.INSTNM,
-                        SatReading = new double?[]
-                        {
-                                item.ScoreCard[0].SATVR75,
-                                item.ScoreCard[0].SATVR25
-                        },
-                        SatMath = new double?[]
-                        {
-                                item.ScoreCard[0].SATMT75,
-                                item.ScoreCard[0].SATMT25
-                        },
-                        SatWriting = new double?[]
-                        {
-                                item.ScoreCard[0].SATWR75,
-                                item.ScoreCard[0].SATWR25
-                        },
-                        SatReadingMid = item.ScoreCard[0].SATVRMID,
-                        SatMathMid = item.ScoreCard[0].SATMTMID,
-                        SatWritingMid = item.ScoreCard[0].SATWRMID,
-                        SatAvg = item.ScoreCard[0].SAT_AVG,
-                        ActCumulative = new double?[]
-                        {
-                                item.ScoreCard[0].ACTCM75,
-                                item.ScoreCard[0].ACTCM25
-                        },
-                        ActEnglish = new double?[]
-                        {
-                                item.ScoreCard[0].ACTEN75,
-                                item.ScoreCard[0].ACTEN25
-                        },
-                        ActMath = new double?[]
-                        {
-                                item.ScoreCard[0].ACTMT75,
-                                item.ScoreCard[0].ACTMT25
-                        },
-                        ActWriting = new double?[]
-                        {
-                                item.ScoreCard[0].ACTWR75,
-                                item.ScoreCard[0].ACTWR25
-                        },
-                        ActCumulativeMid = item.ScoreCard[0].ACTCMMID,
-                        ActEnglishMid = item.ScoreCard[0].ACTENMID,
-                        ActMathMid = item.ScoreCard[0].ACTMTMID,
-                        ActWritingMid = item.ScoreCard[0].ACTWRMID
+                        Name = item.INSTNM,
+                        City = item.CITY,
+                        STABBR = item.STABBR,
+                        ZIP = item.ZIP,
+                        STFIPS = int.Parse(item.ST_FIPS),
+                        REGION = int.Parse(item.REGION),
+                        LOCALE = int.Parse(item.LOCALE),
+                        LAT = item.LATITUDE,
+                        LONG = item.LONGITUDE,
+                        Type = int.Parse(item.CONTROL),
+                        AdRate = item.ScoreCard[0].ADM_RATE == null ? item.ScoreCard[0].ADM_RATE_ALL : item.ScoreCard[0].ADM_RATE,
+                        Income = item.ScoreCard[0].MD_EARN_WNE_P6
                     };
+
+                    if (item.HIGHEST_DEGREE == "Doctor")
+                    {
+                        entry.TopDeg = 1;
+                    }
+                    else if (item.HIGHEST_DEGREE == "Master")
+                    {
+                        entry.TopDeg = 2;
+                    }
+                    else
+                    {
+                        entry.TopDeg = 3;
+                    }
+
+                    dynamic Sat = new JObject();
+                    if (item.ScoreCard[0].SATVR75 != null && item.ScoreCard[0].SATVR25 != null)
+                    {
+                        var arr = new JArray();
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATVR75)));
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATVR25)));
+                        Sat.read = arr;
+                    }
+                    if (item.ScoreCard[0].SATMT75 != null && item.ScoreCard[0].SATMT25 != null)
+                    {
+                        var arr = new JArray();
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATMT75)));
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATMT25)));
+                        Sat.math = arr;
+                    }
+                    if (item.ScoreCard[0].SATWR75 != null && item.ScoreCard[0].SATWR25 != null)
+                    {
+                        var arr = new JArray();
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATWR75)));
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATWR25)));
+                        Sat.wrt = arr;
+                    }
+                    if (item.ScoreCard[0].SATVRMID != null)
+                        Sat.readMid = item.ScoreCard[0].SATVRMID;
+                    if (item.ScoreCard[0].SATMTMID != null)
+                        Sat.mathMid = item.ScoreCard[0].SATMTMID;
+                    if (item.ScoreCard[0].SATWRMID != null)
+                        Sat.wrtMid = item.ScoreCard[0].SATWRMID;
+                    if (item.ScoreCard[0].SAT_AVG != null)
+                        Sat.avg = item.ScoreCard[0].SAT_AVG;
+                    entry.Sat = Sat;
+
+                    dynamic Act = new JObject();
+                    if (item.ScoreCard[0].ACTCM75 != null && item.ScoreCard[0].ACTCM25 != null)
+                    {
+                        var arr = new JArray();
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTCM75)));
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTCM25)));
+                        Act.cum = arr;
+                    }
+                    if (item.ScoreCard[0].ACTEN75 != null && item.ScoreCard[0].ACTEN25 != null)
+                    {
+                        var arr = new JArray();
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTEN75)));
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTEN25)));
+                        Act.eng = arr;
+                    }
+                    if (item.ScoreCard[0].ACTMT75 != null && item.ScoreCard[0].ACTMT25 != null)
+                    {
+                        var arr = new JArray();
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTMT75)));
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTMT25)));
+                        Act.math = arr;
+                    }
+                    if (item.ScoreCard[0].ACTWR75 != null && item.ScoreCard[0].ACTWR25 != null)
+                    {
+                        var arr = new JArray();
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTWR75)));
+                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTWR25)));
+                        Act.wrt = arr;
+                    }
+                    if (item.ScoreCard[0].ACTCMMID != null)
+                        Act.cumMid = item.ScoreCard[0].ACTCMMID;
+                    if (item.ScoreCard[0].ACTENMID != null)
+                        Act.engMid = item.ScoreCard[0].ACTENMID;
+                    if (item.ScoreCard[0].ACTMTMID != null)
+                        Act.mathMid = item.ScoreCard[0].ACTMTMID;
+                    if (item.ScoreCard[0].ACTWRMID != null)
+                        Act.wrtMid = item.ScoreCard[0].ACTWRMID;
+                    entry.Act = Act;
+
+                    if (item.IPEDSDRVEF != null && item.IPEDSDRVEF[0].ENRTOT != null)
+                        entry.ENRTOT = Convert.ToInt32(item.IPEDSDRVEF[0].ENRTOT);
+
+                    if (item.ScoreCard[0].NPT4_PUB != null)
+                        entry.NetPrice = item.ScoreCard[0].NPT4_PUB;
+                    else
+                        entry.NetPrice = item.ScoreCard[0].NPT4_PRIV;
+
+                    if (item.Rank != null)
+                    {
+                        dynamic Rank = new JObject();
+                        Rank.type = item.Rank[0].Category == "Public University" ? 1 : 0;
+                        Rank.rank = item.Rank[0].Rank;
+                        entry.Rank = Rank;
+                    }
+
+                    if (item.IPEDSSSIS != null && item.IPEDSSSIS[0].SISTOTL != null
+                        && entry.ENRTOT != null)
+                    {
+                        entry.FacRatio = (double?)Math.Round((decimal)(entry.ENRTOT / item.IPEDSSSIS[0].SISTOTL), 2);
+                    }
+
+
                     if (item.CommonData != null
                         && item.CommonData[0] != null
                         && item.CommonData[0].Gpa != null
                         && item.CommonData[0].Gpa["p375"] != null
                         && item.CommonData[0].Gpa["p35"] != null)
                     {
+                        dynamic Gpa = new JObject();
                         var gpa = item.CommonData[0].Gpa;
                         var input = new double?[] {
                                 gpa["p4"], gpa["p375"], gpa["p35"],gpa["p325"],gpa["p3"],
                                 gpa["p25"],gpa["p2"],gpa["p1"],gpa["pBelow1"],
                             };
+                        // change JArray as output from this method!!!
                         var output = Utils.EstimateFromGpa(input);
-                        Console.WriteLine(output[0]);
-                        entry.GpaInterval = output;
-                        entry.GpaAvg = gpa["avg"];
+                        //Console.WriteLine(output[0]);
+                        Gpa.vals = output;
+                        Gpa.avg = gpa["avg"];
+                        entry.Gpa = Gpa;
                     }
 
                     if (item.CollegeData != null
@@ -247,36 +375,192 @@ namespace OneStopHelper
                         && item.CollegeData[0].Gpa["p375"] != null
                         && item.CollegeData[0].Gpa["p35"] != null)
                     {
+                        dynamic Gpa = new JObject();
                         var gpa = item.CollegeData[0].Gpa;
                         var input = new double?[] {
                                 gpa["p4"], gpa["p375"], gpa["p35"],gpa["p325"],gpa["p3"],
                                 gpa["p25"],gpa["p2"],gpa["p1"],gpa["pBelow1"],
                             };
                         var output = Utils.EstimateFromGpa(input);
-                        Console.WriteLine(output[0]);
-                        entry.GpaInterval = output;
-                        entry.GpaAvg = gpa["avg"];
+                        //Console.WriteLine(output[0]);
+                        Gpa.vals = output;
+                        Gpa.avg = gpa["avg"];
+                        entry.Gpa = Gpa;
+                    }
+
+                    if (item.CommonData != null && item.CommonData[0].AdmissionDecision != null)
+                    {
+                        dynamic Factors = new JObject();
+                        var vSet = item.CommonData[0].AdmissionDecision["veryImportant"];
+                        var vSetList = new List<string>();
+                        foreach (var elem in vSet)
+                        {
+                            vSetList.Add((string)elem);
+                        }
+                        var iSet = item.CommonData[0].AdmissionDecision["important"];
+                        var iSetList = new List<string>();
+                        foreach (var elem in iSet)
+                        {
+                            iSetList.Add((string)elem);
+                        }
+                        var cSet = item.CommonData[0].AdmissionDecision["considered"];
+                        var cSetList = new List<string>();
+                        foreach (var elem in cSet)
+                        {
+                            cSetList.Add((string)elem);
+                        }
+                        if (vSetList.Count > 0)
+                        {
+                            var arr = new JArray();
+                            foreach (var elem in vSetList)
+                            {
+                                arr.Add(new JValue(GetFactorBack(elem)));
+                            }
+                            Factors.v = arr;
+                        }
+                        if (iSetList.Count > 0)
+                        {
+                            var arr = new JArray();
+                            foreach (var elem in iSetList)
+                            {
+                                arr.Add(new JValue(GetFactorBack(elem)));
+                            }
+                            Factors.i = arr;
+                        }
+                        if (cSetList.Count > 0)
+                        {
+                            var arr = new JArray();
+                            foreach (var elem in cSetList)
+                            {
+                                arr.Add(new JValue(GetFactorBack(elem)));
+                            }
+                            Factors.c = arr;
+                        }
+                        entry.Factors = Factors;
+                    }
+
+                    if (item.CollegeData != null && item.CollegeData[0].AdmissionDecision != null)
+                    {
+                        dynamic Factors = new JObject();
+                        var vSet = item.CollegeData[0].AdmissionDecision["veryImportant"];
+                        var vSetList = new List<string>();
+                        foreach (var elem in vSet)
+                        {
+                            vSetList.Add((string)elem);
+                        }
+                        var iSet = item.CollegeData[0].AdmissionDecision["important"];
+                        var iSetList = new List<string>();
+                        foreach (var elem in iSet)
+                        {
+                            iSetList.Add((string)elem);
+                        }
+                        var cSet = item.CollegeData[0].AdmissionDecision["considered"];
+                        var cSetList = new List<string>();
+                        foreach (var elem in cSet)
+                        {
+                            cSetList.Add((string)elem);
+                        }
+                        if (vSetList.Count > 0)
+                        {
+                            var arr = new JArray();
+                            foreach (var elem in vSetList)
+                            {
+                                arr.Add(new JValue(GetFactorBack(elem)));
+                            }
+                            Factors.v = arr;
+                        }
+                        if (iSetList.Count > 0)
+                        {
+                            var arr = new JArray();
+                            foreach (var elem in iSetList)
+                            {
+                                arr.Add(new JValue(GetFactorBack(elem)));
+                            }
+                            Factors.i = arr;
+                        }
+                        if (cSetList.Count > 0)
+                        {
+                            var arr = new JArray();
+                            foreach (var elem in cSetList)
+                            {
+                                arr.Add(new JValue(GetFactorBack(elem)));
+                            }
+                            Factors.c = arr;
+                        }
+                        entry.Factors = Factors;
                     }
 
                     try
                     {
-                        ItemResponse<EstimateData> res1 = await targetContainer.CreateItemAsync(entry, new PartitionKey(unitid));
+                        ItemResponse<MatchData> res1 = await targetContainer.CreateItemAsync(entry, new PartitionKey(unitid));
                         Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
                     }
                     catch (CosmosException ex)
                     {
                         Console.WriteLine(ex.Message);
                     }
-                    //if (unitid == "104717")
+                    //if (unitid == "102270")
                     //{
                         
-
                     //}
 
                 }
             }
         }
-        
+        private static int GetFactorBack(string factor)
+        {
+            /* admission factors
+            * 19 elements for 0 Rigor of secondary school record; 1 class rank; 2 GPA; 3 test scores; 
+            * 4 essay; 5 recommendations; 6 interview; 7 extracurricular activities; 8 talent;
+            * 9 character; 10 first generation; 11 alumni; 12 geographical residence; 13 state residency;
+            * 14 religion; 15 race; 16 volunteer; 17 work experience; 18 interest.
+            */
+            switch(factor)
+            {
+                case "Rigor of secondary school record":
+                    return 0;
+                case "Class rank":
+                    return 1;
+                case "Academic GPA":
+                    return 2;
+                case "Standardized test scores":
+                    return 3;
+                case "Application Essay":
+                    return 4;
+                case "Recommendation(s)":
+                    return 5;
+                case "Interview":
+                    return 6;
+                case "Extracurricular activities":
+                    return 7;
+                case "Talent/ability":
+                    return 8;
+                case "Character/personal qualities":
+                    return 9;
+                case "First generation":
+                    return 10;
+                case "Alumni/ae relation":
+                    return 11;
+                case "Geographical residence":
+                    return 12;
+                case "State residency":
+                    return 13;
+                case "Religious affiliation/commitment":
+                    return 14;
+                case "Racial/ethnic status":
+                    return 15;
+                case "Volunteer work":
+                    return 16;
+                case "Work experience":
+                    return 17;
+                case "Level of applicant’s interest":
+                    return 18;
+                default:
+                    return -1;
+
+            }
+        }
+
         /// <summary>
         /// Add the basic college data without yearly info from College ScoreCard dataset
         /// </summary>
