@@ -215,6 +215,8 @@ namespace OneStopHelper
             var sqlQueryText = "SELECT * FROM c";
             QueryDefinition queryDefinition = new QueryDefinition(sqlQueryText);
             var it = srcContainer.GetItemQueryIterator<CollegeDataUSYearly>(queryDefinition);
+            var path = "Text.json";
+            using StreamWriter sw = File.AppendText(path);
             while (it.HasMoreResults)
             {
                 var res = await it.ReadNextAsync();
@@ -492,8 +494,12 @@ namespace OneStopHelper
 
                     try
                     {
-                        ItemResponse<MatchData> res1 = await targetContainer.CreateItemAsync(entry, new PartitionKey(unitid));
-                        Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
+                        //ItemResponse<MatchData> res1 = await targetContainer.CreateItemAsync(entry, new PartitionKey(unitid));
+                        //Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
+                        // write them into a file to see how much the cache data is
+                        var jsonStr = JsonConvert.SerializeObject(entry);
+                        //Console.WriteLine(jsonStr);
+                        sw.WriteLine(jsonStr);
                     }
                     catch (CosmosException ex)
                     {
