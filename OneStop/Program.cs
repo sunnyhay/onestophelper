@@ -11,6 +11,35 @@ using Newtonsoft.Json.Linq;
 
 namespace OneStopHelper
 {
+    public class SatInput
+    {
+        public int Avg { get; set; }
+        public int Read { get; set; }
+        public int Math { get; set; }
+        public int Wrt { get; set; }
+    }
+    public class ActInput
+    {
+        public int Cum { get; set; }
+        public int Eng { get; set; }
+        public int Math { get; set; }
+        public int Wrt { get; set; }
+    }
+    /*
+     * {
+     *   gpa,
+     *   sat: {avg, read, math, wrt},
+     *   act: {cum, eng, math, wrt},
+     *   rank
+     * }
+     */
+    public class UserInput
+    {
+        public double Gpa { get; set; }
+        public SatInput Sat { get; set; }
+        public ActInput Act { get; set; }
+        public int Rank { get; set; }
+    }
     public class Program
     {
         // The Azure Cosmos DB endpoint for running this sample.
@@ -70,8 +99,9 @@ namespace OneStopHelper
                 //await p.UpdateYearlDataWithCollegeInfo();
                 //p.ValidateCommonDatasetFile();
                 //p.Estimate();
-                await p.AddMatchDataset();
+                //await p.AddMatchDataset();
                 //await p.SplitColleges();
+                await p.QueryUDF();
             }
             catch (CosmosException de)
             {
@@ -87,6 +117,45 @@ namespace OneStopHelper
                 Console.WriteLine("End of demo, press any key to exit.");
                 Console.ReadKey();
             }
+        }
+
+        public async Task QueryUDF()
+        {
+            UserInput model = new UserInput
+            {
+                Gpa = 3.6,
+                Sat = new SatInput
+                {
+                    Avg = 1501,
+                    Read = 740,
+                    Math = 780,
+                    Wrt = 760
+                },
+                Act = new ActInput
+                {
+                    Cum = 33,
+                    Eng = 34,
+                    Math = 32,
+                    Wrt = 31
+                },
+                Rank = 10
+            };
+            var userInput = JsonConvert.SerializeObject(model);
+            var srcContainer = database.GetContainer("MatchData");
+            var query = $"select * from MatchData c where udf.Test(c, {userInput}) = 4";
+            var iterator = srcContainer.GetItemQueryIterator<MatchData>(query);
+            int count = 0;
+            while (iterator.HasMoreResults)
+            {
+                var results = await iterator.ReadNextAsync();
+                foreach (var item in results)
+                {
+                    count++;
+                    if (item.Sat != null && item.Sat.avg != null)
+                        Console.WriteLine($"{item.Name} qualifies with UNITID {item.UNITID}!");
+                }
+            }
+            Console.WriteLine($"Total {count} colleges qualify current user input!");
         }
 
         // try estimate of GPA, ranking and SAT/ACT
