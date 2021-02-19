@@ -43,10 +43,18 @@ namespace OneStopHelper.Model
         /* admission factors
          * {v: [], i: [], c:[]}
          * v -> very important; i -> important; c -> considered
-         * 19 elements for 0 Rigor of secondary school record; 1 class rank; 2 GPA; 3 test scores; 
-         * 4 essay; 5 recommendations; 6 interview; 7 extracurricular activities; 8 talent;
-         * 9 character; 10 first generation; 11 alumni; 12 geographical residence; 13 state residency;
-         * 14 religion; 15 race; 16 volunteer; 17 work experience; 18 interest.
+         * 19 elements: 0 Rigor of secondary school record (Ri 3 levels);
+         * 1 class rank (Cl 4 levels);
+         * 2 GPA (Gp 4 levels);
+         * 3 test scores (Te 3 levels);
+         * 4 extracurricular activities (Ex 3 levels);
+         * 5 talent (Ta 3 levels);
+         * 6 first generation (Fi 2 levels);
+         * 7 volunteer (Vo 3 levels);
+         * 8 work experience (Wo 2 levels);
+         * 9 essay; 
+         * 10 recommendations; 11 interview; 12 character; 13 alumni; 14 geographical residence;
+         * 15 state residency; 16 religion; 17 race; 18 interest. 
          */
         public dynamic Factors { get; set; }
     }

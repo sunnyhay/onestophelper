@@ -40,6 +40,20 @@ namespace OneStopHelper
         public ActInput Act { get; set; }
         public int Rank { get; set; }
     }
+    
+    public class ComprehensiveInput
+    {
+        public int Ri { get; set; }
+        public int Cl { get; set; }
+        public int Gp { get; set; }
+        public int Te { get; set; }
+        public int Ex { get; set; }
+        public int Ta { get; set; }
+        public int Fi { get; set; }
+        public int Vo { get; set; }
+        public int Wo { get; set; }
+
+    }
     public class Program
     {
         // The Azure Cosmos DB endpoint for running this sample.
@@ -101,7 +115,8 @@ namespace OneStopHelper
                 //p.Estimate();
                 //await p.AddMatchDataset();
                 //await p.SplitColleges();
-                await p.QueryUDF();
+                //await p.SearchAcademicScoreUDF();
+                await p.SearchComprehensiveScoreUDF();
             }
             catch (CosmosException de)
             {
@@ -119,7 +134,7 @@ namespace OneStopHelper
             }
         }
 
-        public async Task QueryUDF()
+        public async Task SearchAcademicScoreUDF()
         {
             UserInput model = new UserInput
             {
@@ -142,7 +157,7 @@ namespace OneStopHelper
             };
             var userInput = JsonConvert.SerializeObject(model);
             var srcContainer = database.GetContainer("MatchData");
-            var query = $"select * from MatchData c where udf.Test(c, {userInput}) = 4";
+            var query = $"select * from MatchData c where udf.AcademicMatch(c, {userInput}) = 4";
             var iterator = srcContainer.GetItemQueryIterator<MatchData>(query);
             int count = 0;
             while (iterator.HasMoreResults)
@@ -156,6 +171,29 @@ namespace OneStopHelper
                 }
             }
             Console.WriteLine($"Total {count} colleges qualify current user input!");
+        }
+        public async Task SearchComprehensiveScoreUDF()
+        {
+            ComprehensiveInput model = new ComprehensiveInput
+            {
+                Ri = 3, Cl = 3, Gp = 4, Te = 3, Ex = 2, Ta = 2, Fi = 1, Vo = 2, Wo = 1
+            };
+            var userInput = JsonConvert.SerializeObject(model);
+            var srcContainer = database.GetContainer("MatchData");
+            var query = $"select * from MatchData c where udf.ComprehensiveMatch(c, {userInput}) = 4";
+            var iterator = srcContainer.GetItemQueryIterator<MatchData>(query);
+            int count = 0;
+            while (iterator.HasMoreResults)
+            {
+                var results = await iterator.ReadNextAsync();
+                foreach (var item in results)
+                {
+                    count++;
+                    if (item.Sat != null && item.Sat.avg != null)
+                        Console.WriteLine($"{item.Name} qualifies with UNITID {item.UNITID}!");
+                }
+            }
+            Console.WriteLine($"Total {count} colleges qualify current comprehensive input!");
         }
 
         // try estimate of GPA, ranking and SAT/ACT
@@ -563,12 +601,12 @@ namespace OneStopHelper
 
                     try
                     {
-                        //ItemResponse<MatchData> res1 = await targetContainer.CreateItemAsync(entry, new PartitionKey(unitid));
-                        //Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
+                        ItemResponse<MatchData> res1 = await targetContainer.CreateItemAsync(entry, new PartitionKey(unitid));
+                        Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
                         // write them into a file to see how much the cache data is
-                        var jsonStr = JsonConvert.SerializeObject(entry);
+                        //var jsonStr = JsonConvert.SerializeObject(entry);
                         //Console.WriteLine(jsonStr);
-                        sw.WriteLine(jsonStr);
+                        //sw.WriteLine(jsonStr);
                     }
                     catch (CosmosException ex)
                     {
@@ -585,12 +623,21 @@ namespace OneStopHelper
         private static int GetFactorBack(string factor)
         {
             /* admission factors
-            * 19 elements for 0 Rigor of secondary school record; 1 class rank; 2 GPA; 3 test scores; 
-            * 4 essay; 5 recommendations; 6 interview; 7 extracurricular activities; 8 talent;
-            * 9 character; 10 first generation; 11 alumni; 12 geographical residence; 13 state residency;
-            * 14 religion; 15 race; 16 volunteer; 17 work experience; 18 interest.
+            * 19 elements: 
+            * 0 Rigor of secondary school record (Ri 3 levels);
+            * 1 class rank (Cl 4 levels);
+            * 2 GPA (Gp 4 levels);
+            * 3 test scores (Te 3 levels);
+            * 4 extracurricular activities (Ex 3 levels);
+            * 5 talent (Ta 3 levels);
+            * 6 first generation (Fi 2 levels);
+            * 7 volunteer (Vo 3 levels);
+            * 8 work experience (Wo 2 levels);
+            * 9 essay; 
+            * 10 recommendations; 11 interview; 12 character; 13 alumni; 14 geographical residence;
+            * 15 state residency; 16 religion; 17 race; 18 interest. 
             */
-            switch(factor)
+            switch (factor)
             {
                 case "Rigor of secondary school record":
                     return 0;
@@ -601,33 +648,33 @@ namespace OneStopHelper
                 case "Standardized test scores":
                     return 3;
                 case "Application Essay":
-                    return 4;
-                case "Recommendation(s)":
-                    return 5;
-                case "Interview":
-                    return 6;
-                case "Extracurricular activities":
-                    return 7;
-                case "Talent/ability":
-                    return 8;
-                case "Character/personal qualities":
                     return 9;
-                case "First generation":
+                case "Recommendation(s)":
                     return 10;
-                case "Alumni/ae relation":
+                case "Interview":
                     return 11;
-                case "Geographical residence":
+                case "Extracurricular activities":
+                    return 4;
+                case "Talent/ability":
+                    return 5;
+                case "Character/personal qualities":
                     return 12;
-                case "State residency":
+                case "First generation":
+                    return 6;
+                case "Alumni/ae relation":
                     return 13;
-                case "Religious affiliation/commitment":
+                case "Geographical residence":
                     return 14;
-                case "Racial/ethnic status":
+                case "State residency":
                     return 15;
-                case "Volunteer work":
+                case "Religious affiliation/commitment":
                     return 16;
-                case "Work experience":
+                case "Racial/ethnic status":
                     return 17;
+                case "Volunteer work":
+                    return 7;
+                case "Work experience":
+                    return 8;
                 case "Level of applicant’s interest":
                     return 18;
                 default:
