@@ -21,19 +21,41 @@ namespace OneStopHelper.Model
         // Doctorate 1; Master 2; Bachelor 3
         public int TopDeg { get; set; }
         // {vals: [highly recom, recom, neutral, not recom], avg: double?}
+        public double? GpaAvg { get; set; }
         public dynamic Gpa { get; set; }
         // {read: [int 75%, int 25%], math: [int 75%, int 25%], wrt: [int 75%, int 25%],
         // readMid: int?, mathMid: int?, wrtMid: int?, avg: int?}
-        public dynamic Sat { get; set; }
+        public int? SatReadHigh { get; set; }
+        public int? SatReadLow { get; set; }
+        public int? SatMathHigh { get; set; }
+        public int? SatMathLow { get; set; }
+        public int? SatWrtLow { get; set; }
+        public int? SatWrtHigh { get; set; }
+        public int? SatReadMid { get; set; }
+        public int? SatMathMid { get; set; }
+        public int? SatWrtMid { get; set; }
+        public int? SatAvg { get; set; }
         // {cum: [int 75%, int 25%], eng: [int 75%, int 25%], math: [int 75%, int 25%], wrt: [int 75%, int 25%],
         // cumMid: int?, engMid: int?, mathMid: int?, wrtMid: int?}
-        public dynamic Act { get; set; }
+        public int? ActCumHigh { get; set; }
+        public int? ActCumLow { get; set; }
+        public int? ActEngHigh { get; set; }
+        public int? ActEngLow { get; set; }
+        public int? ActMathHigh { get; set; }
+        public int? ActMathLow { get; set; }
+        public int? ActWrtHigh { get; set; }
+        public int? ActWrtLow { get; set; }
+        public int? ActCumMid { get; set; }
+        public int? ActEngMid { get; set; }
+        public int? ActMathMid { get; set; }
+        public int? ActWrtMid { get; set; }
         // admission rate
         public double? AdRate { get; set; }
         // ratio about faculty : students
         public double? FacRatio { get; set; }
         // {type: 1 (national university or 0 liberty arts college), rank: int}
-        public dynamic Rank { get; set; }
+        public int RankType { get; set; }
+        public int Rank { get; set; }
         // total enrollment
         public int? ENRTOT { get; set; }
         // average net price for this college

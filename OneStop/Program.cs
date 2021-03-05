@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Microsoft.Azure.Cosmos.Linq;
 
 namespace OneStopHelper
 {
@@ -115,8 +116,9 @@ namespace OneStopHelper
                 //p.Estimate();
                 //await p.AddMatchDataset();
                 //await p.SplitColleges();
-                //await p.SearchAcademicScoreUDF();
-                await p.SearchComprehensiveScoreUDF();
+                await p.SearchAcademicScoreUDF();
+                //await p.SearchComprehensiveScoreUDF();
+                //await p.TryLinq();
             }
             catch (CosmosException de)
             {
@@ -134,6 +136,48 @@ namespace OneStopHelper
             }
         }
 
+        public async Task TryLinq()
+        {
+            UserInput model = new UserInput
+            {
+                Gpa = 3.6,
+                Sat = new SatInput
+                {
+                    Avg = 1501,
+                    Read = 640,
+                    Math = 680,
+                    Wrt = 660
+                },
+                Act = new ActInput
+                {
+                    Cum = 31,
+                    Eng = 30,
+                    Math = 31,
+                    Wrt = 31
+                },
+                Rank = 25
+            };
+            var userInput = JsonConvert.SerializeObject(model);
+            var srcContainer = database.GetContainer("MatchData");
+            using FeedIterator<MatchData> setIterator = srcContainer.GetItemLinqQueryable<MatchData>()
+                .Where(d => (int)CosmosLinq.InvokeUserDefinedFunction("AcademicMatch", new object[] { d, userInput }) == 4)
+                .ToFeedIterator();
+            //using FeedIterator<MatchData> setIterator = srcContainer.GetItemLinqQueryable<MatchData>()
+            //          .Where(b => b.UNITID == "100751" || b.UNITID == "100663" || b.UNITID == "100937")
+            //          .OrderBy(e => e.Rank)
+            //          .ToFeedIterator();
+            int count = 0;
+            while (setIterator.HasMoreResults)
+            {
+                foreach (var item in await setIterator.ReadNextAsync())
+                {
+                    Console.WriteLine("college name: " + item.Name + " and rank: " + item.Rank);
+                    count++;
+                }
+            }
+            Console.WriteLine("Totally " + count + " colleges!");
+        }
+
         public async Task SearchAcademicScoreUDF()
         {
             UserInput model = new UserInput
@@ -142,35 +186,53 @@ namespace OneStopHelper
                 Sat = new SatInput
                 {
                     Avg = 1501,
-                    Read = 740,
-                    Math = 780,
-                    Wrt = 760
+                    Read = 640,
+                    Math = 680,
+                    Wrt = 660
                 },
                 Act = new ActInput
                 {
-                    Cum = 33,
-                    Eng = 34,
-                    Math = 32,
+                    Cum = 31,
+                    Eng = 30,
+                    Math = 31,
                     Wrt = 31
                 },
-                Rank = 10
+                Rank = 25
             };
             var userInput = JsonConvert.SerializeObject(model);
             var srcContainer = database.GetContainer("MatchData");
-            var query = $"select * from MatchData c where udf.AcademicMatch(c, {userInput}) = 4";
+            var query = $"select * from c where udf.AcademicMatch(c, {userInput}) = 4 and c.RankType = 1 order by c.Rank offset 0 limit 20";
             var iterator = srcContainer.GetItemQueryIterator<MatchData>(query);
             int count = 0;
+            List<string> ids = new List<string>();
             while (iterator.HasMoreResults)
             {
                 var results = await iterator.ReadNextAsync();
                 foreach (var item in results)
                 {
                     count++;
-                    if (item.Sat != null && item.Sat.avg != null)
-                        Console.WriteLine($"{item.Name} qualifies with UNITID {item.UNITID}!");
+                    ids.Add(item.UNITID);
+                    Console.WriteLine($"{item.Name} qualifies with UNITID {item.UNITID} with its rank {item.Rank}!");
                 }
             }
             Console.WriteLine($"Total {count} colleges qualify current user input!");
+            var insideStr = "";
+            foreach(var id in ids)
+            {
+                insideStr += "\"" + id + "\",";
+            }
+            var query1 = $"select * from c where c.UNITID in ({insideStr.Substring(0, insideStr.Length-1)})";
+            Console.WriteLine("new query: " + query1);
+            var dstContainer = database.GetContainer("CollegeDataUSYearly");
+            var iterator1 = dstContainer.GetItemQueryIterator<CollegeDataUSYearly>(query1);
+            while (iterator1.HasMoreResults)
+            {
+                var results = await iterator1.ReadNextAsync();
+                foreach(var item in results)
+                {
+                    Console.WriteLine($"{item.INSTNM} is shown here with its city {item.CITY}");
+                }
+            }
         }
         public async Task SearchComprehensiveScoreUDF()
         {
@@ -180,7 +242,7 @@ namespace OneStopHelper
             };
             var userInput = JsonConvert.SerializeObject(model);
             var srcContainer = database.GetContainer("MatchData");
-            var query = $"select * from MatchData c where udf.ComprehensiveMatch(c, {userInput}) = 4";
+            var query = $"select * from c where udf.ComprehensiveMatch(c, {userInput}) = 4";
             var iterator = srcContainer.GetItemQueryIterator<MatchData>(query);
             int count = 0;
             while (iterator.HasMoreResults)
@@ -189,8 +251,7 @@ namespace OneStopHelper
                 foreach (var item in results)
                 {
                     count++;
-                    if (item.Sat != null && item.Sat.avg != null)
-                        Console.WriteLine($"{item.Name} qualifies with UNITID {item.UNITID}!");
+                    Console.WriteLine($"{item.Name} qualifies with UNITID {item.UNITID}!");
                 }
             }
             Console.WriteLine($"Total {count} colleges qualify current comprehensive input!");
@@ -364,77 +425,94 @@ namespace OneStopHelper
                         entry.TopDeg = 3;
                     }
 
-                    dynamic Sat = new JObject();
-                    if (item.ScoreCard[0].SATVR75 != null && item.ScoreCard[0].SATVR25 != null)
+                    if (item.ScoreCard[0].SATVR75 != null)
                     {
-                        var arr = new JArray();
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATVR75)));
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATVR25)));
-                        Sat.read = arr;
+                        entry.SatReadHigh = Convert.ToInt32(item.ScoreCard[0].SATVR75);
                     }
-                    if (item.ScoreCard[0].SATMT75 != null && item.ScoreCard[0].SATMT25 != null)
+
+                    if (item.ScoreCard[0].SATVR25 != null)
                     {
-                        var arr = new JArray();
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATMT75)));
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATMT25)));
-                        Sat.math = arr;
+                        entry.SatReadLow = Convert.ToInt32(item.ScoreCard[0].SATVR25);
                     }
-                    if (item.ScoreCard[0].SATWR75 != null && item.ScoreCard[0].SATWR25 != null)
+
+                    if (item.ScoreCard[0].SATMT75 != null)
                     {
-                        var arr = new JArray();
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATWR75)));
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].SATWR25)));
-                        Sat.wrt = arr;
+                        entry.SatMathHigh = Convert.ToInt32(item.ScoreCard[0].SATMT75);
                     }
+
+                    if (item.ScoreCard[0].SATMT25 != null)
+                    {
+                        entry.SatMathLow = Convert.ToInt32(item.ScoreCard[0].SATMT25);
+                    }
+
+                    if (item.ScoreCard[0].SATWR75 != null)
+                    {
+                        entry.SatWrtHigh = Convert.ToInt32(item.ScoreCard[0].SATWR75);
+                    }
+
+                    if (item.ScoreCard[0].SATWR25 != null)
+                    {
+                        entry.SatWrtLow = Convert.ToInt32(item.ScoreCard[0].SATWR25);
+                    }
+
                     if (item.ScoreCard[0].SATVRMID != null)
-                        Sat.readMid = item.ScoreCard[0].SATVRMID;
+                        entry.SatReadMid = Convert.ToInt32(item.ScoreCard[0].SATVRMID);
                     if (item.ScoreCard[0].SATMTMID != null)
-                        Sat.mathMid = item.ScoreCard[0].SATMTMID;
+                        entry.SatMathMid = Convert.ToInt32(item.ScoreCard[0].SATMTMID);
                     if (item.ScoreCard[0].SATWRMID != null)
-                        Sat.wrtMid = item.ScoreCard[0].SATWRMID;
+                        entry.SatWrtMid = Convert.ToInt32(item.ScoreCard[0].SATWRMID);
                     if (item.ScoreCard[0].SAT_AVG != null)
-                        Sat.avg = item.ScoreCard[0].SAT_AVG;
-                    entry.Sat = Sat;
+                        entry.SatAvg = Convert.ToInt32(item.ScoreCard[0].SAT_AVG);
+                    
+                    if (item.ScoreCard[0].ACTCM75 != null)
+                    {
+                        entry.ActCumHigh = Convert.ToInt32(item.ScoreCard[0].ACTCM75);
+                    }
 
-                    dynamic Act = new JObject();
-                    if (item.ScoreCard[0].ACTCM75 != null && item.ScoreCard[0].ACTCM25 != null)
+                    if (item.ScoreCard[0].ACTCM25 != null)
                     {
-                        var arr = new JArray();
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTCM75)));
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTCM25)));
-                        Act.cum = arr;
+                        entry.ActCumLow = Convert.ToInt32(item.ScoreCard[0].ACTCM25);
                     }
-                    if (item.ScoreCard[0].ACTEN75 != null && item.ScoreCard[0].ACTEN25 != null)
+                    
+                    if (item.ScoreCard[0].ACTEN75 != null)
                     {
-                        var arr = new JArray();
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTEN75)));
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTEN25)));
-                        Act.eng = arr;
+                        entry.ActEngHigh = Convert.ToInt32(item.ScoreCard[0].ACTEN75);
                     }
-                    if (item.ScoreCard[0].ACTMT75 != null && item.ScoreCard[0].ACTMT25 != null)
+                    
+                    if (item.ScoreCard[0].ACTEN25 != null)
                     {
-                        var arr = new JArray();
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTMT75)));
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTMT25)));
-                        Act.math = arr;
+                        entry.ActEngLow = Convert.ToInt32(item.ScoreCard[0].ACTEN25);
                     }
-                    if (item.ScoreCard[0].ACTWR75 != null && item.ScoreCard[0].ACTWR25 != null)
+                    
+                    if (item.ScoreCard[0].ACTMT75 != null)
                     {
-                        var arr = new JArray();
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTWR75)));
-                        arr.Add(new JValue(Convert.ToInt32(item.ScoreCard[0].ACTWR25)));
-                        Act.wrt = arr;
+                        entry.ActMathHigh = Convert.ToInt32(item.ScoreCard[0].ACTMT75);
                     }
+                    
+                    if (item.ScoreCard[0].ACTMT25 != null)
+                    {
+                        entry.ActMathLow = Convert.ToInt32(item.ScoreCard[0].ACTMT25);
+                    }
+                    
+                    if (item.ScoreCard[0].ACTWR75 != null)
+                    {
+                        entry.ActWrtHigh = Convert.ToInt32(item.ScoreCard[0].ACTWR75);
+                    }
+                    
+                    if (item.ScoreCard[0].ACTWR25 != null)
+                    {
+                        entry.ActWrtLow = Convert.ToInt32(item.ScoreCard[0].ACTWR25);
+                    }
+
                     if (item.ScoreCard[0].ACTCMMID != null)
-                        Act.cumMid = item.ScoreCard[0].ACTCMMID;
+                        entry.ActCumMid = Convert.ToInt32(item.ScoreCard[0].ACTCMMID);
                     if (item.ScoreCard[0].ACTENMID != null)
-                        Act.engMid = item.ScoreCard[0].ACTENMID;
+                        entry.ActEngMid = Convert.ToInt32(item.ScoreCard[0].ACTENMID);
                     if (item.ScoreCard[0].ACTMTMID != null)
-                        Act.mathMid = item.ScoreCard[0].ACTMTMID;
+                        entry.ActMathMid = Convert.ToInt32(item.ScoreCard[0].ACTMTMID);
                     if (item.ScoreCard[0].ACTWRMID != null)
-                        Act.wrtMid = item.ScoreCard[0].ACTWRMID;
-                    entry.Act = Act;
-
+                        entry.ActWrtMid = Convert.ToInt32(item.ScoreCard[0].ACTWRMID);
+                    
                     if (item.IPEDSDRVEF != null && item.IPEDSDRVEF[0].ENRTOT != null)
                         entry.ENRTOT = Convert.ToInt32(item.IPEDSDRVEF[0].ENRTOT);
 
@@ -445,10 +523,8 @@ namespace OneStopHelper
 
                     if (item.Rank != null)
                     {
-                        dynamic Rank = new JObject();
-                        Rank.type = item.Rank[0].Category == "Public University" ? 1 : 0;
-                        Rank.rank = item.Rank[0].Rank;
-                        entry.Rank = Rank;
+                        entry.Rank = item.Rank[0].Rank;
+                        entry.RankType = item.Rank[0].Category == "Public University" ? 1 : 0;
                     }
 
                     if (item.IPEDSSSIS != null && item.IPEDSSSIS[0].SISTOTL != null
@@ -476,6 +552,7 @@ namespace OneStopHelper
                         Gpa.vals = output;
                         Gpa.avg = gpa["avg"];
                         entry.Gpa = Gpa;
+                        entry.GpaAvg = gpa["avg"];
                     }
 
                     if (item.CollegeData != null
@@ -495,6 +572,7 @@ namespace OneStopHelper
                         Gpa.vals = output;
                         Gpa.avg = gpa["avg"];
                         entry.Gpa = Gpa;
+                        entry.GpaAvg = gpa["avg"];
                     }
 
                     if (item.CommonData != null && item.CommonData[0].AdmissionDecision != null)
@@ -601,12 +679,12 @@ namespace OneStopHelper
 
                     try
                     {
-                        ItemResponse<MatchData> res1 = await targetContainer.CreateItemAsync(entry, new PartitionKey(unitid));
-                        Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
+                        //ItemResponse<MatchData> res1 = await targetContainer.CreateItemAsync(entry, new PartitionKey(unitid));
+                        //Console.WriteLine("Created entry in database with id: {0} Operation consumed {1} RUs.\n", res1.Resource.Id, res1.RequestCharge);
                         // write them into a file to see how much the cache data is
-                        //var jsonStr = JsonConvert.SerializeObject(entry);
+                        var jsonStr = JsonConvert.SerializeObject(entry);
                         //Console.WriteLine(jsonStr);
-                        //sw.WriteLine(jsonStr);
+                        sw.WriteLine(jsonStr);
                     }
                     catch (CosmosException ex)
                     {
