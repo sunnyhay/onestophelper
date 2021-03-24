@@ -9,6 +9,12 @@ using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Microsoft.Azure.Cosmos.Linq;
+using BitMiracle.Docotic.Pdf;
+using iTextSharp.text.pdf;
+using iTextSharp.text.pdf.parser;
+using System.Text;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace OneStopHelper
 {
@@ -116,9 +122,12 @@ namespace OneStopHelper
                 //p.Estimate();
                 //await p.AddMatchDataset();
                 //await p.SplitColleges();
-                await p.SearchAcademicScoreUDF();
+                //await p.SearchAcademicScoreUDF();
                 //await p.SearchComprehensiveScoreUDF();
                 //await p.TryLinq();
+                //p.ParsePDF();
+                //p.ParsePDFLinebyLine();
+                p.ParseWord();
             }
             catch (CosmosException de)
             {
@@ -134,6 +143,1074 @@ namespace OneStopHelper
                 Console.WriteLine("End of demo, press any key to exit.");
                 Console.ReadKey();
             }
+        }
+
+        public void ParseWord()
+        {
+            var filename = "c:/Users/Administrator/Documents/college-commondatasets/CDS_2019-2020_Ohio State University--Columbus.docx";
+            //var filename = "c:/Users/Administrator/Downloads/Files_Online2PDF/Columbia University Admissions - US News Best Colleges.docx";
+            using var doc = WordprocessingDocument.Open(filename, false);
+            var tables = doc.MainDocumentPart.Document.Body.Elements<Table>();
+            int count = 0;
+            CommonDataset_H1 H1 = new CommonDataset_H1();
+            CommonDataset_H2 H2 = new CommonDataset_H2();
+            CommonDataset_H3 H3 = new CommonDataset_H3();
+            CommonDataset_H5 H5 = new CommonDataset_H5();
+            CommonDataset_H6 H6 = new CommonDataset_H6();
+            CommonDataset_H7 H7 = new CommonDataset_H7();
+            CommonDataset_H8 H8 = new CommonDataset_H8();
+            CommonDataset_H9 H9 = new CommonDataset_H9();
+            CommonDataset_H10 H10 = new CommonDataset_H10();
+            CommonDataset_H11 H11 = new CommonDataset_H11();
+            CommonDataset_H12 H12 = new CommonDataset_H12();
+            CommonDataset_H13 H13 = new CommonDataset_H13();
+            CommonDataset_H14 H14 = new CommonDataset_H14();
+            CommonDataset_H15 H15 = new CommonDataset_H15();
+
+            foreach (var table in tables)
+            {
+                count++;
+                var rows = table.Elements<TableRow>();
+                TableRow firstRow = rows.ElementAt(0);
+                var firstRowText = firstRow.InnerText;
+                //Console.WriteLine("First row text: " + firstRowText);
+                //Console.WriteLine();
+
+                // Financial H1 table
+                if (firstRowText.StartsWith("Need-based"))
+                {
+                    Console.WriteLine("H1 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //var rowText = tableRow.InnerText;
+                        //Console.WriteLine("each row text: " + rowText);
+                        var cellList = tableRow.Elements().ToList();
+                        for(int i = 0; i < cellList.Count; i++)
+                        {
+                            //Console.Write($"cell: {cellList[i].InnerText}; ");
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("Federal") && !cellText.Equals("Federal Work-Study"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.FederalGrantNeeded = neededAmount;
+                                H1.FederalGrantNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("State (i.e.,"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.StateGrantNeeded = neededAmount;
+                                H1.StateGrantNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("Institutional:"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.InstitutionalGrantNeeded = neededAmount;
+                                H1.InstitutionalGrantNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("Scholarships/grants"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.ExternalGrantNeeded = neededAmount;
+                                H1.ExternalGrantNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("Total Scholarships"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.TotalGrantNeeded = neededAmount;
+                                H1.TotalGrantNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("Student loans"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.StudentLoanNeeded = neededAmount;
+                                H1.StudentLoanNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("Federal Work-Study"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.FederalWorkstudyNeeded = neededAmount;
+                                H1.FederalWorkstudyNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("State and other"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.StateWorkstudyNeeded = neededAmount;
+                                H1.StateWorkstudyNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("Total Self-Help"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.TotalSelfhelpNeeded = neededAmount;
+                                H1.TotalSelfhelpNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("Parent Loans"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.ParentLoanNeeded = neededAmount;
+                                H1.ParentLoanNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("Tuition Waivers"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.TuitionwaiverNeeded = neededAmount;
+                                H1.TuitionwaiverNonneeded = nonNeededAmount;
+                            }
+                            else if (cellText.StartsWith("Athletic Awards"))
+                            {
+                                var neededAmount = ParseAmount(cellList[i + 1].InnerText);
+                                var nonNeededAmount = ParseAmount(cellList[i + 2].InnerText);
+                                //Console.WriteLine($"{neededAmount} + {nonNeededAmount}");
+                                H1.AthleticAwardNeeded = neededAmount;
+                                H1.AthleticAwardNonneeded = nonNeededAmount;
+                            }
+                        }
+                        
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("First-time") && firstRowText.Contains("Freshmen"))
+                {
+                    Console.WriteLine("H2 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            //Console.Write($"cell: {cellList[i].InnerText}; ");
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("a)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfDegree = numOfUndergranduate;
+                                H2.NumOfParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("b)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfAppliedNeededDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfAppliedNeededDegree = numOfUndergranduate;
+                                H2.NumOfAppliedNeededParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("c)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfDeterminedDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfDeterminedDegree = numOfUndergranduate;
+                                H2.NumOfDeterminedParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("d)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfAwardedDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfAwardedDegree = numOfUndergranduate;
+                                H2.NumOfAwardedParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("e)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfAwardedNeededGrantDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfAwardedNeededGrantDegree = numOfUndergranduate;
+                                H2.NumOfAwardedNeededGrantParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("f)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfAwardedNeededSelfhelpDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfAwardedNeededSelfhelpDegree = numOfUndergranduate;
+                                H2.NumOfAwardedNeededSelfhelpParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("g)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfAwardedNonNeededGrantDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfAwardedNonNeededGrantDegree = numOfUndergranduate;
+                                H2.NumOfAwardedNonNeededGrantParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("h)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfFullyMetDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfFullyMetDegree = numOfUndergranduate;
+                                H2.NumOfFullyMetParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("i)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.PercentFullyMetDegreeFreshmen = numOfFreshmen;
+                                H2.PercentFullyMetDegree = numOfUndergranduate;
+                                H2.PercentFullyMetParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("j)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.AvgPackageDegreeFreshmen = numOfFreshmen;
+                                H2.AvgPackageDegree = numOfUndergranduate;
+                                H2.AvgPackageParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("k)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.AvgNeededGrantDegreeFreshmen = numOfFreshmen;
+                                H2.AvgNeededGrantDegree = numOfUndergranduate;
+                                H2.AvgNeededGrantParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("l)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.AvgNeededSelfhelpDegreeFreshmen = numOfFreshmen;
+                                H2.AvgNeededSelfhelpDegree = numOfUndergranduate;
+                                H2.AvgNeededSelfhelpParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("m)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.AvgNeededLoanDegreeFreshmen = numOfFreshmen;
+                                H2.AvgNeededLoanDegree = numOfUndergranduate;
+                                H2.AvgNeededLoanParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("n)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfAwardedInstitutionalNonNeededGrantDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfAwardedInstitutionalNonNeededGrantDegree = numOfUndergranduate;
+                                H2.NumOfAwardedInstitutionalNonNeededGrantParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("o)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.AvgInstitutionalNonNeededGrantDegreeFreshmen = numOfFreshmen;
+                                H2.AvgInstitutionalNonNeededGrantDegree = numOfUndergranduate;
+                                H2.AvgInstitutionalNonNeededGrantParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("p)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.NumOfAwardedAthleticNonNeededGrantDegreeFreshmen = numOfFreshmen;
+                                H2.NumOfAwardedAthleticNonNeededGrantDegree = numOfUndergranduate;
+                                H2.NumOfAwardedAthleticNonNeededGrantParttime = numOfParttime;
+                            }
+                            else if (cellText.StartsWith("q)"))
+                            {
+                                var numOfFreshmen = ParseAmount(cellList[i + 1].InnerText);
+                                var numOfUndergranduate = ParseAmount(cellList[i + 2].InnerText);
+                                var numOfParttime = ParseAmount(cellList[i + 3].InnerText);
+                                H2.AvgAthleticNonNeededGrantDegreeFreshmen = numOfFreshmen;
+                                H2.AvgAthleticNonNeededGrantDegree = numOfUndergranduate;
+                                H2.AvgAthleticNonNeededGrantParttime = numOfParttime;
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("Federal methodology"))
+                {
+                    Console.WriteLine("H3 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            //Console.Write($"cell: {cellList[i].InnerText}; ");
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("Federal methodology"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H3.FederalMethod = true;
+                            }
+                            else if (cellText.StartsWith("Institutional methodology"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H3.InstitutionalMethod = true;
+                            }
+                            else if (cellText.StartsWith("Both"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H3.Both = true;
+                            }
+                            
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("Source/Type of Loan"))
+                {
+                    Console.WriteLine("H5 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("a)"))
+                            {
+                                var num = ParseAmount(cellList[i + 1].InnerText);
+                                var percent = ParseAmount(cellList[i + 2].InnerText);
+                                var avgAmount = ParseAmount(cellList[i + 3].InnerText);
+                                H5.LoanNumber = num;
+                                H5.LoanPercent = percent;
+                                H5.LoanAvgAmount = avgAmount;
+                            }
+                            else if (cellText.StartsWith("b)"))
+                            {
+                                var num = ParseAmount(cellList[i + 1].InnerText);
+                                var percent = ParseAmount(cellList[i + 2].InnerText);
+                                var avgAmount = ParseAmount(cellList[i + 3].InnerText);
+                                H5.FederalLoanNumber = num;
+                                H5.FederalLoanPercent = percent;
+                                H5.FederalLoanAvgAmount = avgAmount;
+                            }
+                            else if (cellText.StartsWith("c)"))
+                            {
+                                var num = ParseAmount(cellList[i + 1].InnerText);
+                                var percent = ParseAmount(cellList[i + 2].InnerText);
+                                var avgAmount = ParseAmount(cellList[i + 3].InnerText);
+                                H5.InstitutionalLoanNumber = num;
+                                H5.InstitutionalLoanPercent = percent;
+                                H5.InstitutionalLoanAvgAmount = avgAmount;
+                            }
+                            else if (cellText.StartsWith("d)"))
+                            {
+                                var num = ParseAmount(cellList[i + 1].InnerText);
+                                var percent = ParseAmount(cellList[i + 2].InnerText);
+                                var avgAmount = ParseAmount(cellList[i + 3].InnerText);
+                                H5.StateLoanNumber = num;
+                                H5.StateLoanPercent = percent;
+                                H5.StateLoanAvgAmount = avgAmount;
+                            }
+                            else if (cellText.StartsWith("e)"))
+                            {
+                                var num = ParseAmount(cellList[i + 1].InnerText);
+                                var percent = ParseAmount(cellList[i + 2].InnerText);
+                                var avgAmount = ParseAmount(cellList[i + 3].InnerText);
+                                H5.PrivateLoanNumber = num;
+                                H5.PrivateLoanPercent = percent;
+                                H5.PrivateLoanAvgAmount = avgAmount;
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("Institutional needed-based") ||
+                    firstRowText.StartsWith("If institutional financial aid is") ||
+                    firstRowText.StartsWith("Average dollar amount of institutional") ||
+                    firstRowText.StartsWith("Total dollar amount of institutional"))
+                {
+                    Console.WriteLine("H6 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //Console.WriteLine(tableRow.InnerText);
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("Institutional needed-based"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                H6.HasNeeded = true;
+                            }
+                            else if (cellText.StartsWith("Institutional non-need"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H6.HasNonNeeded = true;
+                            }
+                            else if (cellText.StartsWith("Institutional scholarship or"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H6.NotAvailable = true;
+                            }
+                            else if (cellText.StartsWith("If institutional financial aid is"))
+                            {
+                                var num = ParseAmount(cellList[i + 1].InnerText);
+                                H6.NumOfNRA = num;
+                            }
+                            else if (cellText.StartsWith("Average dollar amount of institutional"))
+                            {
+                                var num = ParseAmount(cellList[i + 1].InnerText);
+                                H6.AvgAmountForNRA = num;
+                            }
+                            else if (cellText.StartsWith("Total dollar amount of institutional"))
+                            {
+                                var num = ParseAmount(cellList[i + 1].InnerText);
+                                H6.TotalAmountForNRA = num;
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("Institution") && firstRowText.Contains("own financial aid form"))
+                {
+                    Console.WriteLine("H7 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //Console.WriteLine(tableRow.InnerText);
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("Institution's own financial aid form"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H7.OwnAidForm = true;
+                            }
+                            else if (cellText.StartsWith("CSS/Financial Aid"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H7.CSSProfile = true;
+                            }
+                            else if (cellText.StartsWith("International Student's Financial Aid"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H7.AidApplication = true;
+                            }
+                            else if (cellText.StartsWith("International Student's Certification"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H7.CertOfFinances = true;
+                            }
+                            else if (cellText.StartsWith("Other (specify):"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                {
+                                    H7.Other = cellText.Substring(16).Trim();
+                                }
+                            }                            
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("FAFSA"))
+                {
+                    Console.WriteLine("H8 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //Console.WriteLine(tableRow.InnerText);
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("FAFSA"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H8.FAFSA = true;
+                            }
+                            else if (cellText.StartsWith("Institution"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H8.OwnAidForm = true;
+                            }
+                            else if (cellText.StartsWith("CSS/Financial Aid"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H8.CSSProfile = true;
+                            }
+                            else if (cellText.StartsWith("State aid form"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H8.StateAidForm = true;
+                            }
+                            else if (cellText.StartsWith("Noncustodial"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H8.NonCustodialProfile = true;
+                            }
+                            else if (cellText.StartsWith("Business/Farm"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H8.BusinessSupplement = true;
+                            }
+                            else if (cellText.StartsWith("Other (specify):"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                {
+                                    H8.Other = cellText.Substring(16).Trim();
+                                }
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("Priority date for filing required financial"))
+                {
+                    Console.WriteLine("H9 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //Console.WriteLine(tableRow.InnerText);
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("Priority date for filing required financial"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                H9.PriorityDate = text;
+                            }
+                            else if (cellText.StartsWith("Deadline for filling required"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                H9.Deadline = text;
+                            }
+                            else if (cellText.StartsWith("No deadline for filling required"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H9.IsRolling = true;
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("a)") && firstRowText.Contains("Students notified on or about"))
+                {
+                    Console.WriteLine("H10 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //Console.WriteLine(tableRow.InnerText);
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            
+                            //Console.WriteLine(cellText);
+                            if (cellText.StartsWith("a)"))
+                            {
+                                var text = cellList[i + 3].InnerText;
+                                H10.NotifyDate = text;
+                            }
+                            else if (cellText.StartsWith("b)"))
+                            {
+                                var text = cellList[i + 2].InnerText;
+                                var text1 = cellList[i + 3].InnerText;
+                                if (text == "x")
+                                    H10.IsRolling = true;
+                                if (text1 == "x")
+                                    H10.IsRolling = false;
+                            }
+                            else if (cellText.StartsWith("If yes, starting date"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                H10.RollingDate = text;
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("Students must reply by"))
+                {
+                    Console.WriteLine("H11 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //Console.WriteLine(tableRow.InnerText);
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("Students must reply by"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                H11.ReplyDate = text;
+                            }
+                            else if (cellText.StartsWith("or within"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                H11.ReplyWithinWeeks = text;
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("Direct Subsidized Stafford Loans") || firstRowText.StartsWith("Federal Perkins Loans"))
+                {
+                    Console.WriteLine("H12 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //Console.WriteLine(tableRow.InnerText);
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("Direct Subsidized Stafford Loans"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H12.SubsidizedLoan = true;
+                            }
+                            else if (cellText.StartsWith("Direct Unsubsidized Stafford Loans"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H12.UnsubsidizedLoan = true;
+                            }
+                            else if (cellText.StartsWith("Direct PLUS Loans"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H12.PLUSLoan = true;
+                            }
+                            else if (cellText.StartsWith("Federal Perkins Loans"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H12.FederalPerkinsLoan = true;
+                            }
+                            else if (cellText.StartsWith("Federal Nursing Loans"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H12.FederalNursingLoan = true;
+                            }
+                            else if (cellText.StartsWith("State Loans"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H12.StateLoan = true;
+                            }
+                            else if (cellText.StartsWith("College/university loans"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H12.CollegeLoan = true;
+                            }
+                            else if (cellText.StartsWith("Other (specify):"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                {
+                                    H12.Other = cellText.Substring(16).Trim();
+                                }
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.StartsWith("Federal Pell"))
+                {
+                    Console.WriteLine("H13 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //Console.WriteLine(tableRow.InnerText);
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("Federal Pell"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H13.FederalPell = true;
+                            }
+                            else if (cellText.StartsWith("SEOG"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H13.SEOG = true;
+                            }
+                            else if (cellText.StartsWith("State scholarships/grants"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H13.StateGrant = true;
+                            }
+                            else if (cellText.StartsWith("Private scholarships"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H13.PrivateScholarship = true;
+                            }
+                            else if (cellText.StartsWith("College/university scholarship or grant"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H13.CollegeGrant = true;
+                            }
+                            else if (cellText.StartsWith("Unitied Negro College Fund"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H13.NegroFund = true;
+                            }
+                            else if (cellText.StartsWith("Federal Nursing Scholarship"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                    H13.NursingScholarship = true;
+                            }
+                            else if (cellText.StartsWith("Other (specify):"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                if (text == "x")
+                                {
+                                    H13.Other = cellText.Substring(16).Trim();
+                                }
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+                else if (firstRowText.Contains("Non-Need Based") && firstRowText.Contains("Need Based"))
+                {
+                    Console.WriteLine("H14 table-----------------------------");
+                    foreach (var tableRow in rows)
+                    {
+                        //Console.WriteLine(tableRow.InnerText);
+                        var cellList = tableRow.Elements().ToList();
+                        for (int i = 0; i < cellList.Count; i++)
+                        {
+                            var cellText = cellList[i].InnerText;
+                            if (cellText.StartsWith("Academics"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.AcademicsNonNeed = true;
+                                if (nextText == "x")
+                                    H14.AcademicsNeed = true;
+                            }
+                            else if (cellText.StartsWith("Alumni affiliation"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.AlumniNonNeed = true;
+                                if (nextText == "x")
+                                    H14.AlumniNeed = true;
+                            }
+                            else if (cellText.StartsWith("Art"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.ArtNonNeed = true;
+                                if (nextText == "x")
+                                    H14.ArtNeed = true;
+                            }
+                            else if (cellText.StartsWith("Athletics"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.AthleticsNonNeed = true;
+                                if (nextText == "x")
+                                    H14.AthleticsNeed = true;
+                            }
+                            else if (cellText.StartsWith("Job skills"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.JobNonNeed = true;
+                                if (nextText == "x")
+                                    H14.JobNeed = true;
+                            }
+                            else if (cellText.StartsWith("ROTC"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.ROTCNonNeed = true;
+                                if (nextText == "x")
+                                    H14.ROTCNeed = true;
+                            }
+                            else if (cellText.StartsWith("Leadership"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.LeadershipNonNeed = true;
+                                if (nextText == "x")
+                                    H14.LeadershipNeed = true;
+                            }
+                            else if (cellText.StartsWith("Minority status"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.MinorityNonNeed = true;
+                                if (nextText == "x")
+                                    H14.MinorityNeed = true;
+                            }
+                            else if (cellText.StartsWith("Music/drama"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.MusicNonNeed = true;
+                                if (nextText == "x")
+                                    H14.MusicNeed = true;
+                            }
+                            else if (cellText.StartsWith("Religious affiliation"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.ReligionNonNeed = true;
+                                if (nextText == "x")
+                                    H14.ReligionNeed = true;
+                            }
+                            else if (cellText.StartsWith("State/district residency"))
+                            {
+                                var text = cellList[i + 1].InnerText;
+                                var nextText = cellList[i + 2].InnerText;
+                                if (text == "x")
+                                    H14.ResidencyNonNeed = true;
+                                if (nextText == "x")
+                                    H14.ResidencyNeed = true;
+                            }
+                        }
+
+                        //Console.WriteLine();
+                    }
+                }
+            }
+
+            // read paragraph
+            var paragraphs = doc.MainDocumentPart.RootElement.Descendants<Paragraph>();
+            var parags = paragraphs.ToList();
+
+            for (int i = 0; i < parags.Count; i++)
+            {
+                var parag = parags[i];
+                if (parag.InnerText.StartsWith("Institutional need-based scholarship"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    if (text == "x")
+                        H6.HasNeeded = true;
+                }
+                if (parag.InnerText.StartsWith("Institutional non-need-based scholarship"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    if (text == "x")
+                        H6.HasNonNeeded = true;
+                }
+                if (parag.InnerText.StartsWith("Institutional scholarship or grant aid is not available"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    if (text == "x")
+                        H6.NotAvailable = true;
+                }
+                if (parag.InnerText.Equals("Alumni affiliation"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.AlumniNonNeed == null && text == "x")
+                        H14.AlumniNonNeed = true;
+                    if (H14.AlumniNeed == null && nextText == "x")
+                        H14.AlumniNeed = true;
+                }
+                if (parag.InnerText.Equals("Art"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.ArtNonNeed == null && text == "x")
+                        H14.ArtNonNeed = true;
+                    if (H14.ArtNeed == null && nextText == "x")
+                        H14.ArtNeed = true;
+                }
+                if (parag.InnerText.Equals("Athletics"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.AthleticsNonNeed == null && text == "x")
+                        H14.AthleticsNonNeed = true;
+                    if (H14.AthleticsNeed == null && nextText == "x")
+                        H14.AthleticsNeed = true;
+                }
+                if (parag.InnerText.Equals("Job skills"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.JobNonNeed == null && text == "x")
+                        H14.JobNonNeed = true;
+                    if (H14.JobNeed == null && nextText == "x")
+                        H14.JobNeed = true;
+                }
+                if (parag.InnerText.Equals("ROTC"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.ROTCNonNeed == null && text == "x")
+                        H14.ROTCNonNeed = true;
+                    if (H14.ROTCNeed == null && nextText == "x")
+                        H14.ROTCNeed = true;
+                }
+                if (parag.InnerText.Equals("Leadership"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.LeadershipNonNeed == null && text == "x")
+                        H14.LeadershipNonNeed = true;
+                    if (H14.LeadershipNeed == null && nextText == "x")
+                        H14.LeadershipNeed = true;
+                }
+                if (parag.InnerText.Equals("Minority status"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.MinorityNonNeed == null && text == "x")
+                        H14.MinorityNonNeed = true;
+                    if (H14.MinorityNeed == null && nextText == "x")
+                        H14.MinorityNeed = true;
+                }
+                if (parag.InnerText.Equals("Music/drama"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.MusicNonNeed == null && text == "x")
+                        H14.MusicNonNeed = true;
+                    if (H14.MusicNeed == null && nextText == "x")
+                        H14.MusicNeed = true;
+                }
+                if (parag.InnerText.Equals("Religious affiliation"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.ReligionNonNeed == null && text == "x")
+                        H14.ReligionNonNeed = true;
+                    if (H14.ReligionNeed == null && nextText == "x")
+                        H14.ReligionNeed = true;
+                }
+                if (parag.InnerText.Equals("State/district residency"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    if (H14.ResidencyNonNeed == null && text == "x")
+                        H14.ResidencyNonNeed = true;
+                    if (H14.ResidencyNeed == null && nextText == "x")
+                        H14.ResidencyNeed = true;
+                }
+                if (parag.InnerText.StartsWith("If your institution has recently implemented any major financial aid"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    H15.ForLowIncome = text;
+                }
+            }
+            Console.WriteLine("Done!");
+        }
+
+        public void ParsePDFLinebyLine()
+        {
+            PdfReader reader = new PdfReader(@"c:/Users/Administrator/Documents/college-commondatasets/CDS 2019-2020_Pennsylvania State University--University Park.pdf");
+            int intPageNum = reader.NumberOfPages;
+            string[] words;
+            string line;
+
+            for (int i = 1; i <= intPageNum; i++)
+            {
+                var text = PdfTextExtractor.GetTextFromPage(reader, i, new SimpleTextExtractionStrategy());
+                words = text.Split('\n');
+                //Console.WriteLine(text);
+                for (int j = 0, len = words.Length; j < len; j++)
+                {
+                    line = Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(words[j]));
+                    if (line.Contains("On average, the percentage of need"))
+                        Console.WriteLine(line);
+                }
+            }
+        }
+
+        public void ParsePDF()
+        {
+            BitMiracle.Docotic.LicenseManager.AddLicenseData("7E8NC-JQHUR-6IF36-QSAPT-2YSEA");
+            using var pdf = new BitMiracle.Docotic.Pdf.PdfDocument("c:/Users/Administrator/Documents/college-commondatasets/CDS 2019-2020_Pennsylvania State University--University Park.pdf");
+            string documentText = pdf.GetText();
+            Console.WriteLine(documentText);
+            var pages = pdf.Pages;
+            foreach (var page in pages)
+            {
+                var words = page.GetWords();
+                for (int i = 0; i < words.Count; i++)
+                {
+                    var word = words[i];
+                    if (word.GetText().Equals("fees:"))
+                    {
+                        Console.WriteLine("fees: " + words[i + 1].GetText());
+                    }
+                }
+            }
+
         }
 
         public async Task TryLinq()
@@ -3172,6 +4249,22 @@ namespace OneStopHelper
                     }
             }
             return result;
+        }
+
+        private double? ParseAmount(string amount)
+        {
+            if (amount == string.Empty)
+                return null;
+            StringBuilder sb = new StringBuilder();
+            for(int i = 0; i < amount.Length; i++)
+            {
+                var letter = amount.ElementAt(i);
+                if (letter == '0' || letter == '1' || letter == '2' || letter == '3' || letter == '4' ||
+                    letter == '5' || letter == '6' || letter == '7' || letter == '8' || letter == '9' ||
+                    letter == '.')
+                    sb.Append(letter);
+            }
+            return double.Parse(sb.ToString());
         }
     }
 }
