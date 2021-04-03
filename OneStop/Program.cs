@@ -127,7 +127,7 @@ namespace OneStopHelper
                 //await p.TryLinq();
                 //p.ParsePDF();
                 //p.ParsePDFLinebyLine();
-                p.ParseWord();
+                await p.ParseWord();
             }
             catch (CosmosException de)
             {
@@ -145,10 +145,9 @@ namespace OneStopHelper
             }
         }
 
-        public void ParseWord()
+        public async Task ParseWord()
         {
             var filename = "c:/Users/Administrator/Documents/college-commondatasets/CDS_2019-2020_Ohio State University--Columbus.docx";
-            //var filename = "c:/Users/Administrator/Downloads/Files_Online2PDF/Columbia University Admissions - US News Best Colleges.docx";
             using var doc = WordprocessingDocument.Open(filename, false);
             var tables = doc.MainDocumentPart.Document.Body.Elements<Table>();
             int count = 0;
@@ -166,6 +165,8 @@ namespace OneStopHelper
             CommonDataset_H13 H13 = new CommonDataset_H13();
             CommonDataset_H14 H14 = new CommonDataset_H14();
             CommonDataset_H15 H15 = new CommonDataset_H15();
+            CommonDataset_I2 I2 = new CommonDataset_I2();
+            CommonDataset_I3 I3 = new CommonDataset_I3();
 
             foreach (var table in tables)
             {
@@ -1044,6 +1045,42 @@ namespace OneStopHelper
                         //Console.WriteLine();
                     }
                 }
+                else if (firstRowText.StartsWith("CLASS"))
+                {
+                    Console.WriteLine("I3 table-----------------------------");
+                    var rowList = rows.ToList();
+                    for(int j = 0; j < rowList.Count; j++)
+                    {
+                        var currentRow = rowList[j];
+                        //Console.WriteLine("row: " + currentRow.InnerText);
+                        if (currentRow.InnerText.StartsWith("CLASS SUB-"))
+                        {
+                            var secondRow = rowList[j + 1];
+                            var cellList = secondRow.Elements().ToList();
+                            I3.ClassSubSection2to9 = ParseAmount(cellList[2].InnerText);
+                            I3.ClassSubSection10to19 = ParseAmount(cellList[3].InnerText);
+                            I3.ClassSubSection20to29 = ParseAmount(cellList[4].InnerText);
+                            I3.ClassSubSection30to39 = ParseAmount(cellList[5].InnerText);
+                            I3.ClassSubSection40to49 = ParseAmount(cellList[6].InnerText);
+                            I3.ClassSubSection50to99 = ParseAmount(cellList[7].InnerText);
+                            I3.ClassSubSection100More = ParseAmount(cellList[8].InnerText);
+                            I3.ClassSubSectionTotal = ParseAmount(cellList[9].InnerText);
+                        } else if (currentRow.InnerText.StartsWith("CLASS"))
+                        {
+                            var secondRow = rowList[j + 1];
+                            var cellList = secondRow.Elements().ToList();
+                            I3.ClassSection2to9 = ParseAmount(cellList[2].InnerText);
+                            I3.ClassSection10to19 = ParseAmount(cellList[3].InnerText);
+                            I3.ClassSection20to29 = ParseAmount(cellList[4].InnerText);
+                            I3.ClassSection30to39 = ParseAmount(cellList[5].InnerText);
+                            I3.ClassSection40to49 = ParseAmount(cellList[6].InnerText);
+                            I3.ClassSection50to99 = ParseAmount(cellList[7].InnerText);
+                            I3.ClassSection100More = ParseAmount(cellList[8].InnerText);
+                            I3.ClassSectionTotal = ParseAmount(cellList[9].InnerText);
+                        }
+                    }
+                    
+                }
             }
 
             // read paragraph
@@ -1053,6 +1090,96 @@ namespace OneStopHelper
             for (int i = 0; i < parags.Count; i++)
             {
                 var parag = parags[i];
+                if (H2.NumOfAwardedDegreeFreshmen == null && parag.InnerText.StartsWith("d) Number of students in line c who were awarded"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.NumOfAwardedDegreeFreshmen = ParseAmount(text);
+                    H2.NumOfAwardedDegree = ParseAmount(nextText);
+                    H2.NumOfAwardedParttime = ParseAmount(thirdText);
+                }
+                if (H2.NumOfAwardedNeededGrantDegreeFreshmen == null && parag.InnerText.StartsWith("e) Number of students in line d who were awarded"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.NumOfAwardedNeededGrantDegreeFreshmen = ParseAmount(text);
+                    H2.NumOfAwardedNeededGrantDegree = ParseAmount(nextText);
+                    H2.NumOfAwardedNeededGrantParttime = ParseAmount(thirdText);
+                }
+                if (H2.NumOfAwardedNeededSelfhelpDegreeFreshmen == null && parag.InnerText.StartsWith("f)") && parag.InnerText.Contains("Number of students in line d who were awarded"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.NumOfAwardedNeededSelfhelpDegreeFreshmen = ParseAmount(text);
+                    H2.NumOfAwardedNeededSelfhelpDegree = ParseAmount(nextText);
+                    H2.NumOfAwardedNeededSelfhelpParttime = ParseAmount(thirdText);
+                }
+                if (H2.NumOfAwardedNonNeededGrantDegreeFreshmen == null && parag.InnerText.StartsWith("g) Number of students in line d who were awarded"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.NumOfAwardedNonNeededGrantDegreeFreshmen = ParseAmount(text);
+                    H2.NumOfAwardedNonNeededGrantDegree = ParseAmount(nextText);
+                    H2.NumOfAwardedNonNeededGrantParttime = ParseAmount(thirdText);
+                }
+                if (H2.NumOfFullyMetDegreeFreshmen == null && parag.InnerText.StartsWith("h) Number of students in line d whose need"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.NumOfFullyMetDegreeFreshmen = ParseAmount(text);
+                    H2.NumOfFullyMetDegree = ParseAmount(nextText);
+                    H2.NumOfFullyMetParttime = ParseAmount(thirdText);
+                }
+                if (H2.PercentFullyMetDegreeFreshmen == null && parag.InnerText.StartsWith("i)") && parag.InnerText.Contains("On average, the percentage of need"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.PercentFullyMetDegreeFreshmen = ParseAmount(text);
+                    H2.PercentFullyMetDegree = ParseAmount(nextText);
+                    H2.PercentFullyMetParttime = ParseAmount(thirdText);
+                }
+                if (H2.AvgPackageDegreeFreshmen == null && parag.InnerText.StartsWith("j)") && parag.InnerText.Contains("The average financial aid package of"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.AvgPackageDegreeFreshmen = ParseAmount(text);
+                    H2.AvgPackageDegree = ParseAmount(nextText);
+                    H2.AvgPackageParttime = ParseAmount(thirdText);
+                }
+                if (H2.AvgNeededGrantDegreeFreshmen == null && parag.InnerText.Contains("Average need-based scholarship and grant award of"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.AvgNeededGrantDegreeFreshmen = ParseAmount(text);
+                    H2.AvgNeededGrantDegree = ParseAmount(nextText);
+                    H2.AvgNeededGrantParttime = ParseAmount(thirdText);
+                }
+                if (H2.AvgNeededSelfhelpDegreeFreshmen == null && parag.InnerText.StartsWith("l)") && parag.InnerText.Contains("Average need-based self-help award"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.AvgNeededSelfhelpDegreeFreshmen = ParseAmount(text);
+                    H2.AvgNeededSelfhelpDegree = ParseAmount(nextText);
+                    H2.AvgNeededSelfhelpParttime = ParseAmount(thirdText);
+                }
+                if (H2.AvgNeededLoanDegreeFreshmen == null && parag.InnerText.StartsWith("m) Average need-based loan"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var nextText = parags[i + 2].InnerText;
+                    var thirdText = parags[i + 3].InnerText;
+                    H2.AvgNeededLoanDegreeFreshmen = ParseAmount(text);
+                    H2.AvgNeededLoanDegree = ParseAmount(nextText);
+                    H2.AvgNeededLoanParttime = ParseAmount(thirdText);
+                }
                 if (parag.InnerText.StartsWith("Institutional need-based scholarship"))
                 {
                     var text = parags[i + 1].InnerText;
@@ -1166,8 +1293,231 @@ namespace OneStopHelper
                     var text = parags[i + 1].InnerText;
                     H15.ForLowIncome = text;
                 }
+                if (parag.InnerText.StartsWith("Fall 2019 Student to Faculty ratio"))
+                {
+                    var text = parags[i + 1].InnerText;
+                    var textSecond = parags[i + 2].InnerText;
+                    var textThird = parags[i + 3].InnerText;
+                    var textFourth = parags[i + 4].InnerText;
+                    I2.StudentRatioNum = ParseAmount(text);
+                    I2.FacultyRatioNum = ParseAmount(textSecond.Substring(3));
+                    I2.TotalStudents = ParseAmount(textThird);
+                    I2.TotalFaculty = ParseAmount(textFourth);
+                }
             }
             Console.WriteLine("Done!");
+
+            var collegeJsonFilename = "c:/Users/Administrator/Documents/college-commondatasets/commondataset-Ohio State University--Columbus.json";
+            var collegeNewJsonFilename = "c:/Users/Administrator/Documents/college-commondatasets/commondataset-Ohio State University--Columbus--full.json";
+            var templateFilename = "c:/Users/Administrator/Documents/college-commondatasets/other-template.json";
+            JObject collegeJson = ReadJsonObjFromFile(collegeJsonFilename);
+            JObject template = ReadJsonObjFromFile(templateFilename);
+            template["aid"]["h1"]["need"]["federal"] = H1.FederalGrantNeeded;
+            template["aid"]["h1"]["need"]["state"] = H1.StateGrantNeeded;
+            template["aid"]["h1"]["need"]["institutional"] = H1.InstitutionalGrantNeeded;
+            template["aid"]["h1"]["need"]["external"] = H1.ExternalGrantNeeded;
+            template["aid"]["h1"]["need"]["totalGrant"] = H1.TotalGrantNeeded;
+            template["aid"]["h1"]["need"]["studentLoan"] = H1.StudentLoanNeeded;
+            template["aid"]["h1"]["need"]["federalWorkstudy"] = H1.FederalWorkstudyNeeded;
+            template["aid"]["h1"]["need"]["stateWorkStudy"] = H1.StateWorkstudyNeeded;
+            template["aid"]["h1"]["need"]["totalSelfhelp"] = H1.TotalSelfhelpNeeded;
+            template["aid"]["h1"]["need"]["parentLoan"] = H1.ParentLoanNeeded;
+            template["aid"]["h1"]["need"]["tuitionWaiver"] = H1.TuitionwaiverNeeded;
+            template["aid"]["h1"]["need"]["athleticAward"] = H1.AthleticAwardNeeded;
+
+            template["aid"]["h1"]["nonNeed"]["federal"] = H1.FederalGrantNonneeded;
+            template["aid"]["h1"]["nonNeed"]["state"] = H1.StateGrantNonneeded;
+            template["aid"]["h1"]["nonNeed"]["institutional"] = H1.InstitutionalGrantNonneeded;
+            template["aid"]["h1"]["nonNeed"]["external"] = H1.ExternalGrantNonneeded;
+            template["aid"]["h1"]["nonNeed"]["totalGrant"] = H1.TotalGrantNonneeded;
+            template["aid"]["h1"]["nonNeed"]["studentLoan"] = H1.StudentLoanNonneeded;
+            template["aid"]["h1"]["nonNeed"]["federalWorkstudy"] = H1.FederalWorkstudyNonneeded;
+            template["aid"]["h1"]["nonNeed"]["stateWorkStudy"] = H1.StateWorkstudyNonneeded;
+            template["aid"]["h1"]["nonNeed"]["totalSelfhelp"] = H1.TotalSelfhelpNonneeded;
+            template["aid"]["h1"]["nonNeed"]["parentLoan"] = H1.ParentLoanNonneeded;
+            template["aid"]["h1"]["nonNeed"]["tuitionWaiver"] = H1.TuitionwaiverNonneeded;
+            template["aid"]["h1"]["nonNeed"]["athleticAward"] = H1.AthleticAwardNonneeded;
+
+            template["aid"]["h2"]["freshmen"]["numOfStudents"] = H2.NumOfDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["numOfApplied"] = H2.NumOfAppliedNeededDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["numOfDetermined"] = H2.NumOfDeterminedDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["numOfAwarded"] = H2.NumOfAwardedDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["numOfAwardedNeedGrant"] = H2.NumOfAwardedNeededGrantDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["numOfAwardedNeedSelfhelp"] = H2.NumOfAwardedNeededSelfhelpDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["numOfAwardedNonneedGrant"] = H2.NumOfAwardedNonNeededGrantDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["numOfFullyMet"] = H2.NumOfFullyMetDegreeFreshmen;
+            Console.WriteLine("h2 PercentFullyMetDegreeFreshmen: " + H2.PercentFullyMetDegreeFreshmen);
+            template["aid"]["h2"]["freshmen"]["avgPercentMet"] = H2.PercentFullyMetDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["avgAidAmount"] = H2.AvgPackageDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["avgNeedGrantAmount"] = H2.AvgNeededGrantDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["avgNeedSelfhelpAmount"] = H2.AvgNeededSelfhelpDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["avgNeedLoanAmount"] = H2.AvgNeededLoanDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["numOfNonneedGrant"] = H2.NumOfAwardedInstitutionalNonNeededGrantDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["avgNonneedGrantAmount"] = H2.AvgInstitutionalNonNeededGrantDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["numOfAthleticGrant"] = H2.NumOfAwardedAthleticNonNeededGrantDegreeFreshmen;
+            template["aid"]["h2"]["freshmen"]["avgAthleticAmount"] = H2.AvgAthleticNonNeededGrantDegreeFreshmen;
+
+            template["aid"]["h2"]["undergraduate"]["numOfStudents"] = H2.NumOfDegree;
+            template["aid"]["h2"]["undergraduate"]["numOfApplied"] = H2.NumOfAppliedNeededDegree;
+            template["aid"]["h2"]["undergraduate"]["numOfDetermined"] = H2.NumOfDeterminedDegree;
+            template["aid"]["h2"]["undergraduate"]["numOfAwarded"] = H2.NumOfAwardedDegree;
+            template["aid"]["h2"]["undergraduate"]["numOfAwardedNeedGrant"] = H2.NumOfAwardedNeededGrantDegree;
+            template["aid"]["h2"]["undergraduate"]["numOfAwardedNeedSelfhelp"] = H2.NumOfAwardedNeededSelfhelpDegree;
+            template["aid"]["h2"]["undergraduate"]["numOfAwardedNonneedGrant"] = H2.NumOfAwardedNonNeededGrantDegree;
+            template["aid"]["h2"]["undergraduate"]["numOfFullyMet"] = H2.NumOfFullyMetDegree;
+            template["aid"]["h2"]["undergraduate"]["avgPercentMet"] = H2.PercentFullyMetDegree;
+            template["aid"]["h2"]["undergraduate"]["avgAidAmount"] = H2.AvgPackageDegree;
+            template["aid"]["h2"]["undergraduate"]["avgNeedGrantAmount"] = H2.AvgNeededGrantDegree;
+            template["aid"]["h2"]["undergraduate"]["avgNeedSelfhelpAmount"] = H2.AvgNeededSelfhelpDegree;
+            template["aid"]["h2"]["undergraduate"]["avgNeedLoanAmount"] = H2.AvgNeededLoanDegree;
+            template["aid"]["h2"]["undergraduate"]["numOfNonneedGrant"] = H2.NumOfAwardedInstitutionalNonNeededGrantDegree;
+            template["aid"]["h2"]["undergraduate"]["avgNonneedGrantAmount"] = H2.AvgInstitutionalNonNeededGrantDegree;
+            template["aid"]["h2"]["undergraduate"]["numOfAthleticGrant"] = H2.NumOfAwardedAthleticNonNeededGrantDegree;
+            template["aid"]["h2"]["undergraduate"]["avgAthleticAmount"] = H2.AvgAthleticNonNeededGrantDegree;
+
+            template["aid"]["h2"]["parttime"]["numOfStudents"] = H2.NumOfParttime;
+            template["aid"]["h2"]["parttime"]["numOfApplied"] = H2.NumOfAppliedNeededParttime;
+            template["aid"]["h2"]["parttime"]["numOfDetermined"] = H2.NumOfDeterminedParttime;
+            template["aid"]["h2"]["parttime"]["numOfAwarded"] = H2.NumOfAwardedParttime;
+            template["aid"]["h2"]["parttime"]["numOfAwardedNeedGrant"] = H2.NumOfAwardedNeededGrantParttime;
+            template["aid"]["h2"]["parttime"]["numOfAwardedNeedSelfhelp"] = H2.NumOfAwardedNeededSelfhelpParttime;
+            template["aid"]["h2"]["parttime"]["numOfAwardedNonneedGrant"] = H2.NumOfAwardedNonNeededGrantParttime;
+            template["aid"]["h2"]["parttime"]["numOfFullyMet"] = H2.NumOfFullyMetParttime;
+            template["aid"]["h2"]["parttime"]["avgPercentMet"] = H2.PercentFullyMetParttime;
+            template["aid"]["h2"]["parttime"]["avgAidAmount"] = H2.AvgPackageParttime;
+            template["aid"]["h2"]["parttime"]["avgNeedGrantAmount"] = H2.AvgNeededGrantParttime;
+            template["aid"]["h2"]["parttime"]["avgNeedSelfhelpAmount"] = H2.AvgNeededSelfhelpParttime;
+            template["aid"]["h2"]["parttime"]["avgNeedLoanAmount"] = H2.AvgNeededLoanParttime;
+            template["aid"]["h2"]["parttime"]["numOfNonneedGrant"] = H2.NumOfAwardedInstitutionalNonNeededGrantParttime;
+            template["aid"]["h2"]["parttime"]["avgNonneedGrantAmount"] = H2.AvgInstitutionalNonNeededGrantParttime;
+            template["aid"]["h2"]["parttime"]["numOfAthleticGrant"] = H2.NumOfAwardedAthleticNonNeededGrantParttime;
+            template["aid"]["h2"]["parttime"]["avgAthleticAmount"] = H2.AvgAthleticNonNeededGrantParttime;
+
+            template["aid"]["h3"]["federal"] = H3.FederalMethod;
+            template["aid"]["h3"]["institutional"] = H3.InstitutionalMethod;
+            template["aid"]["h3"]["both"] = H3.Both;
+
+            template["aid"]["h5"]["number"]["loan"] = H5.LoanNumber;
+            template["aid"]["h5"]["number"]["federal"] = H5.FederalLoanNumber;
+            template["aid"]["h5"]["number"]["institutional"] = H5.InstitutionalLoanNumber;
+            template["aid"]["h5"]["number"]["stateLoan"] = H5.StateLoanNumber;
+            template["aid"]["h5"]["number"]["privateLoan"] = H5.PrivateLoanNumber;
+
+            template["aid"]["h5"]["percent"]["loan"] = H5.LoanPercent;
+            template["aid"]["h5"]["percent"]["federal"] = H5.FederalLoanPercent;
+            template["aid"]["h5"]["percent"]["institutional"] = H5.InstitutionalLoanPercent;
+            template["aid"]["h5"]["percent"]["stateLoan"] = H5.StateLoanPercent;
+            template["aid"]["h5"]["percent"]["privateLoan"] = H5.PrivateLoanPercent;
+
+            template["aid"]["h5"]["avgAmount"]["loan"] = H5.LoanAvgAmount;
+            template["aid"]["h5"]["avgAmount"]["federal"] = H5.FederalLoanAvgAmount;
+            template["aid"]["h5"]["avgAmount"]["institutional"] = H5.InstitutionalLoanAvgAmount;
+            template["aid"]["h5"]["avgAmount"]["stateLoan"] = H5.StateLoanAvgAmount;
+            template["aid"]["h5"]["avgAmount"]["privateLoan"] = H5.PrivateLoanAvgAmount;
+
+            template["aid"]["h6"]["hasNeed"] = H6.HasNeeded;
+            template["aid"]["h6"]["hasNonneed"] = H6.HasNonNeeded;
+            template["aid"]["h6"]["notAvailable"] = H6.NotAvailable;
+            template["aid"]["h6"]["numOfNRA"] = H6.NumOfNRA;
+            template["aid"]["h6"]["avgAmount"] = H6.AvgAmountForNRA;
+            template["aid"]["h6"]["totalAmount"] = H6.TotalAmountForNRA;
+
+            template["aid"]["h7"]["ownAidForm"] = H7.OwnAidForm;
+            template["aid"]["h7"]["cssProfile"] = H7.CSSProfile;
+            template["aid"]["h7"]["aidApplication"] = H7.AidApplication;
+            template["aid"]["h7"]["certOfFinances"] = H7.CertOfFinances;
+            template["aid"]["h7"]["other"] = H7.Other;
+
+            template["aid"]["h8"]["fafsa"] = H8.FAFSA;
+            template["aid"]["h8"]["ownAidForm"] = H8.OwnAidForm;
+            template["aid"]["h8"]["cssProfile"] = H8.CSSProfile;
+            template["aid"]["h8"]["stateAidForm"] = H8.StateAidForm;
+            template["aid"]["h8"]["nonCustodialProfile"] = H8.NonCustodialProfile;
+            template["aid"]["h8"]["businessSupplement"] = H8.BusinessSupplement;
+            template["aid"]["h8"]["other"] = H8.Other;
+
+            template["aid"]["h9"]["priorityDate"] = H9.PriorityDate;
+            template["aid"]["h9"]["deadline"] = H9.Deadline;
+            template["aid"]["h9"]["isRolling"] = H9.IsRolling;
+
+            template["aid"]["h10"]["notifyDate"] = H10.NotifyDate;
+            template["aid"]["h10"]["isRolling"] = H10.IsRolling;
+            template["aid"]["h10"]["rollingDate"] = H10.RollingDate;
+
+            template["aid"]["h11"]["replyDate"] = H11.ReplyDate;
+            template["aid"]["h11"]["replyWithinWeeks"] = H11.ReplyWithinWeeks;
+
+            template["aid"]["h12"]["subsidizedLoan"] = H12.SubsidizedLoan;
+            template["aid"]["h12"]["unsubsidizedLoan"] = H12.UnsubsidizedLoan;
+            template["aid"]["h12"]["plusLoan"] = H12.PLUSLoan;
+            template["aid"]["h12"]["federalPerkinsLoan"] = H12.FederalPerkinsLoan;
+            template["aid"]["h12"]["federalNursingLoan"] = H12.FederalNursingLoan;
+            template["aid"]["h12"]["stateLoan"] = H12.StateLoan;
+            template["aid"]["h12"]["collegeLoan"] = H12.CollegeLoan;
+            template["aid"]["h12"]["other"] = H12.Other;
+
+            template["aid"]["h13"]["federalPell"] = H13.FederalPell;
+            template["aid"]["h13"]["seog"] = H13.SEOG;
+            template["aid"]["h13"]["stateGrant"] = H13.StateGrant;
+            template["aid"]["h13"]["privateScholarship"] = H13.PrivateScholarship;
+            template["aid"]["h13"]["collegeGrant"] = H13.CollegeGrant;
+            template["aid"]["h13"]["negroFund"] = H13.NegroFund;
+            template["aid"]["h13"]["nursingScholarship"] = H13.NursingScholarship;
+            template["aid"]["h13"]["other"] = H13.Other;
+
+            template["aid"]["h14"]["need"]["academics"] = H14.AcademicsNeed;
+            template["aid"]["h14"]["need"]["alumni"] = H14.AlumniNeed;
+            template["aid"]["h14"]["need"]["art"] = H14.ArtNeed;
+            template["aid"]["h14"]["need"]["athletics"] = H14.AthleticsNeed;
+            template["aid"]["h14"]["need"]["job"] = H14.JobNeed;
+            template["aid"]["h14"]["need"]["rotc"] = H14.ROTCNeed;
+            template["aid"]["h14"]["need"]["leadership"] = H14.LeadershipNeed;
+            template["aid"]["h14"]["need"]["minority"] = H14.MinorityNeed;
+            template["aid"]["h14"]["need"]["music"] = H14.MusicNeed;
+            template["aid"]["h14"]["need"]["religion"] = H14.ReligionNeed;
+            template["aid"]["h14"]["need"]["residency"] = H14.ResidencyNeed;
+
+            template["aid"]["h14"]["nonNeed"]["academics"] = H14.AcademicsNonNeed;
+            template["aid"]["h14"]["nonNeed"]["alumni"] = H14.AlumniNonNeed;
+            template["aid"]["h14"]["nonNeed"]["art"] = H14.ArtNonNeed;
+            template["aid"]["h14"]["nonNeed"]["athletics"] = H14.AthleticsNonNeed;
+            template["aid"]["h14"]["nonNeed"]["job"] = H14.JobNonNeed;
+            template["aid"]["h14"]["nonNeed"]["rotc"] = H14.ROTCNonNeed;
+            template["aid"]["h14"]["nonNeed"]["leadership"] = H14.LeadershipNonNeed;
+            template["aid"]["h14"]["nonNeed"]["minority"] = H14.MinorityNonNeed;
+            template["aid"]["h14"]["nonNeed"]["music"] = H14.MusicNonNeed;
+            template["aid"]["h14"]["nonNeed"]["religion"] = H14.ReligionNonNeed;
+            template["aid"]["h14"]["nonNeed"]["residency"] = H14.ResidencyNonNeed;
+
+            template["aid"]["h15"]["forLowIncome"] = H15.ForLowIncome;
+
+            template["faculty"]["i2"]["studentRatioNum"] = I2.StudentRatioNum;
+            template["faculty"]["i2"]["facultyRatioNum"] = I2.FacultyRatioNum;
+            template["faculty"]["i2"]["totalStudents"] = I2.TotalStudents;
+            template["faculty"]["i2"]["totalFaculty"] = I2.TotalFaculty;
+
+            template["faculty"]["i3"]["classSection"]["2to9"] = I3.ClassSection2to9;
+            template["faculty"]["i3"]["classSection"]["10to19"] = I3.ClassSection10to19;
+            template["faculty"]["i3"]["classSection"]["20to29"] = I3.ClassSection20to29;
+            template["faculty"]["i3"]["classSection"]["30to39"] = I3.ClassSection30to39;
+            template["faculty"]["i3"]["classSection"]["40to49"] = I3.ClassSection40to49;
+            template["faculty"]["i3"]["classSection"]["50to99"] = I3.ClassSection50to99;
+            template["faculty"]["i3"]["classSection"]["100more"] = I3.ClassSection100More;
+            template["faculty"]["i3"]["classSection"]["total"] = I3.ClassSectionTotal;
+
+            template["faculty"]["i3"]["classSubsection"]["2to9"] = I3.ClassSubSection2to9;
+            template["faculty"]["i3"]["classSubsection"]["10to19"] = I3.ClassSubSection10to19;
+            template["faculty"]["i3"]["classSubsection"]["20to29"] = I3.ClassSubSection20to29;
+            template["faculty"]["i3"]["classSubsection"]["30to39"] = I3.ClassSubSection30to39;
+            template["faculty"]["i3"]["classSubsection"]["40to49"] = I3.ClassSubSection40to49;
+            template["faculty"]["i3"]["classSubsection"]["50to99"] = I3.ClassSubSection50to99;
+            template["faculty"]["i3"]["classSubsection"]["100more"] = I3.ClassSubSection100More;
+            template["faculty"]["i3"]["classSubsection"]["total"] = I3.ClassSubSectionTotal;
+
+            collegeJson["aid"] = template["aid"];
+            collegeJson["faculty"] = template["faculty"];
+            //Console.WriteLine(collegeJson);
+            await File.WriteAllTextAsync(collegeNewJsonFilename, collegeJson.ToString());
         }
 
         public void ParsePDFLinebyLine()
@@ -4265,6 +4615,19 @@ namespace OneStopHelper
                     sb.Append(letter);
             }
             return double.Parse(sb.ToString());
+        }
+
+        private JObject ReadJsonObjFromFile(string filename)
+        {
+            //string contents = File.ReadAllText(filename);
+            //Console.WriteLine("File name: " + filename);
+            //Console.WriteLine(contents);
+            using StreamReader file = File.OpenText(filename);
+            using JsonTextReader reader = new JsonTextReader(file);
+            JObject json = (JObject)JToken.ReadFrom(reader);
+            //Console.WriteLine(json["faculty"]["i2"]);
+            //Console.WriteLine("Current aid h15 is " + json["aid"]["h15"]);
+            return json;
         }
     }
 }
